@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "Mengirim tangkapan layar ini ke MiniMax dan menggunakan kuota paket Anda. Periksa hasil sebelum menyimpan. PNG/JPEG, maksimal 12 MB.",
+  "costs.scanReceipt": "Baca tangkapan layar pembayaran",
+  "costs.scanReceiptHint": "Pengenalan lokal saja. Periksa kolom sebelum menerapkan dan menyimpan. PNG/JPEG, maksimal 12 MB.",
+  "costs.scanReceiptFailed": "Pembayaran tidak dikenali. Coba gambar lebih jelas atau isi secara manual.",
+  "costs.scanReceiptApply": "Terapkan kolom yang dikenali",
   'costs.confirm.deleteTitle': 'Hapus pengeluaran?',
   'costs.confirm.deleteBody': '"{name}" akan dihapus secara permanen.',
   'budget.title': 'Anggaran',

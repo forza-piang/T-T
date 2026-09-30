@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "이 스크린샷을 MiniMax로 전송하고 요금제 할당량을 사용합니다. 저장 전에 결과를 확인하세요. PNG/JPEG, 최대 12 MB.",
+  "costs.scanReceipt": "결제 화면 인식",
+  "costs.scanReceiptHint": "로컬 서버에서만 인식합니다. 적용 및 저장 전에 확인하세요. PNG/JPEG, 최대 12 MB.",
+  "costs.scanReceiptFailed": "결제 정보를 인식하지 못했습니다. 선명한 사진을 사용하거나 직접 입력하세요.",
+  "costs.scanReceiptApply": "인식 결과 적용",
   'costs.confirm.deleteTitle': '지출을 삭제할까요?',
   'costs.confirm.deleteBody': '"{name}"이(가) 영구적으로 삭제됩니다.',
   'budget.title': '예산',

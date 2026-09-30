@@ -1,3 +1,7 @@
+import { ConfigModule } from '@nestjs/config';
+import { mapsConfig } from '../app-config/tokens';
+import { AmapProxyController } from './amap-proxy.controller';
+import { AmapProxyService } from './amap-proxy.service';
 import { PlacePhotosModule } from '../place-photos/place-photos.module';
 import { StorageModule } from '../storage/storage.module';
 import { MapsController } from './maps.controller';
@@ -12,9 +16,9 @@ import { Module } from '@nestjs/common';
  * Nothing outside the container consumes this domain, so there is no bridge.
  */
 @Module({
-  imports: [PlacePhotosModule, StorageModule],
-  controllers: [MapsController],
-  providers: [MapsService, MapsMcp],
+  imports: [ConfigModule.forFeature(mapsConfig), PlacePhotosModule, StorageModule],
+  controllers: [MapsController, AmapProxyController],
+  providers: [MapsService, MapsMcp, AmapProxyService],
   exports: [MapsService],
 })
 export class MapsModule {}

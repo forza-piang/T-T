@@ -140,6 +140,7 @@ interface Props {
   center?: [number, number];
   zoom?: number;
   fitKey?: number | null;
+  focusPlaceKey?: number;
   dayOrderMap?: Record<number, number[] | null>;
   leftWidth?: number;
   rightWidth?: number;
@@ -481,6 +482,7 @@ export function MapViewGL({
   center = DEFAULT_MAP_CENTER,
   zoom = DEFAULT_MAP_ZOOM,
   fitKey = 0,
+  focusPlaceKey = 0,
   dayOrderMap = NO_DAY_ORDER,
   leftWidth = 0,
   rightWidth = 0,
@@ -1739,7 +1741,7 @@ export function MapViewGL({
     } catch {
       /* noop */
     }
-  }, [selectedPlaceId, enableMapbox3d]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedPlaceId, focusPlaceKey, enableMapbox3d]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // External center/zoom prop changes — jump without animation
   const jumpedToRef = useRef<[number, number] | null>(null);

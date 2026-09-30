@@ -269,7 +269,10 @@ function usePlaceFormModal(props: PlaceFormModalProps) {
     // because only handleSelectMapsResult ever set it.
     if (place && place.lat != null && place.lng != null) {
       setDetailsSelection({
-        placeId: place.google_place_id || place.osm_id || undefined,
+        placeId:
+          place.google_place_id ||
+          place.osm_id ||
+          (place.amap_id ? `amap:${place.amap_id}` : undefined),
         lat: Number(place.lat),
         lng: Number(place.lng),
         name: place.name || '',

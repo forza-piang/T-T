@@ -1,21 +1,12 @@
 import type { Collection, CollectionLink } from '@trek/shared';
-import { ImagePlus, Link2, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { ImagePlus, Link2, Loader2, Plus, Trash2 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { tripsApi } from '../../api/client';
 import { normalizeLinkUrl } from '../../pages/collections/collectionsModel';
 import { useCollectionStore } from '../../store/collectionStore';
 import type { TranslationFn } from '../../types';
 import { getApiErrorMessage } from '../../utils/apiError';
 import Modal from '../shared/Modal';
 import { useToast } from '../shared/Toast';
-
-interface CoverSearchPhoto {
-  id: string;
-  url: string;
-  thumb: string;
-  description?: string | null;
-  photographer?: string | null;
-}
 
 const SWATCHES = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#3b82f6', '#22c55e'];
 
@@ -54,11 +45,6 @@ export default function ListEditorModal({
   const [links, setLinks] = useState<CollectionLink[]>([]);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [pendingUnsplashUrl, setPendingUnsplashUrl] = useState<string | null>(null);
-  const [coverQuery, setCoverQuery] = useState('');
-  const [coverResults, setCoverResults] = useState<CoverSearchPhoto[]>([]);
-  const [searchingCover, setSearchingCover] = useState(false);
-  const coverSeq = useRef(0);
   const [saving, setSaving] = useState(false);
   // Remembers a freshly created list id so a retry after a cover-upload failure
   // updates it instead of creating a duplicate list.
@@ -82,9 +68,7 @@ export default function ListEditorModal({
     setCoverFile(null);
     dropObjectUrl();
     setCoverPreview(editing?.cover_image ?? null);
-    setPendingUnsplashUrl(null);
-    setCoverQuery('');
-    setCoverResults([]);
+
     setCreatedId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
@@ -101,31 +85,7 @@ export default function ListEditorModal({
     objectUrl.current = url;
     setCoverFile(file);
     setCoverPreview(url);
-    setPendingUnsplashUrl(null); // an uploaded file wins over a picked Unsplash photo
-  };
 
-  const searchCover = async () => {
-    const query = coverQuery.trim() || name.trim();
-    if (!query) return;
-    const seq = ++coverSeq.current;
-    setSearchingCover(true);
-    try {
-      const data = await tripsApi.searchCoverImages(query);
-      if (seq !== coverSeq.current) return;
-      setCoverResults(data.photos || []);
-    } catch {
-      if (seq === coverSeq.current) setCoverResults([]);
-    } finally {
-      if (seq === coverSeq.current) setSearchingCover(false);
-    }
-  };
-
-  const pickUnsplash = (photo: CoverSearchPhoto) => {
-    if (!photo.url) return;
-    dropObjectUrl();
-    setCoverFile(null);
-    setPendingUnsplashUrl(photo.url);
-    setCoverPreview(photo.url);
   };
 
   const setLink = (i: number, patch: Partial<CollectionLink>) =>
@@ -145,7 +105,6 @@ export default function ListEditorModal({
       color,
       description: description.trim() || null,
       links: cleanLinks,
-      ...(pendingUnsplashUrl ? { cover_image: pendingUnsplashUrl } : {}),
     };
     setSaving(true);
     try {
@@ -243,55 +202,6 @@ export default function ListEditorModal({
             onChange={(e) => pickCover(e.target.files?.[0])}
           />
 
-          {/* Unsplash cover search — same source as trip creation */}
-          <div className="mt-2 flex gap-2">
-            <input
-              value={coverQuery}
-              onChange={(e) => setCoverQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  searchCover();
-                }
-              }}
-              placeholder={t('dashboard.unsplashSearchPlaceholder')}
-              className="min-w-0 flex-1 rounded-lg border border-edge bg-surface-input px-3 py-2 text-[13px] text-content outline-none focus:border-accent"
-            />
-            <button
-              type="button"
-              onClick={searchCover}
-              disabled={searchingCover || (!coverQuery.trim() && !name.trim())}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-edge px-3 py-2 text-[13px] text-content-secondary hover:bg-surface-hover disabled:opacity-40"
-            >
-              {searchingCover ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-              {t('dashboard.searchUnsplash')}
-            </button>
-          </div>
-          {coverResults.length > 0 && (
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {coverResults.map((photo) => (
-                <button
-                  type="button"
-                  key={photo.id}
-                  onClick={() => pickUnsplash(photo)}
-                  aria-label={photo.photographer || 'Unsplash'}
-                  className={`relative h-20 overflow-hidden rounded-lg border transition-colors ${coverPreview === photo.url ? 'ring-accent/25 border-accent ring-2' : 'border-edge hover:border-accent'}`}
-                >
-                  <img
-                    src={photo.thumb}
-                    alt={photo.description || ''}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                  {photo.photographer && (
-                    <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-1 text-[10px] text-white">
-                      {photo.photographer}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Name */}

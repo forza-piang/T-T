@@ -88,3 +88,8 @@ describe('globalMiddleware request-log redaction', () => {
     expect(redact(undefined)).toBe(undefined);
   });
 });
+
+
+it('redacts payment screenshots even when verbose request logging is enabled', () => {
+  expect(redact({ imageBase64: 'private-image', name: 'scan' })).toEqual({ imageBase64: '[REDACTED]', name: 'scan' });
+});

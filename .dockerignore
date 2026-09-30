@@ -37,3 +37,12 @@ server/vitest.config.ts
 **/*.spec.ts
 scripts/
 charts/
+
+# Private deployment material must not enter the image build context.
+secrets
+backups
+release-artifacts
+login-info.txt
+compose.override.yaml
+docker-compose.override.yml
+docker-compose.cn.yml

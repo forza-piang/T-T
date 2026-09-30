@@ -1,3 +1,4 @@
+import { AmapProxyService } from '../../src/nest/maps/amap-proxy.service';
 /**
  * Maps module e2e — exercises the migrated /api/maps endpoints through the real
  * JwtAuthGuard against a temp SQLite db. The DI-native MapsService's provider
@@ -61,6 +62,26 @@ describe('Maps e2e (real auth guard + temp SQLite)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('does not expose the AMap signing proxy to unauthenticated requests', async () => {
+    const res = await request(server).get('/_AMapService/v3/place/text?key=test-js-key');
+    expect(res.status).toBe(401);
+  });
+
+  it('routes authenticated AMap SDK requests and never caches the signed response publicly', async () => {
+    const proxy = vi.spyOn(app.get(AmapProxyService), 'forward').mockResolvedValue({
+      body: Buffer.from('{"status":"1"}'), contentType: 'application/json',
+    });
+    try {
+      const res = await request(server).get('/_AMapService/v3/place/text?key=test-js-key').set('Cookie', sessionCookie(1));
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ status: '1' });
+      expect(res.headers['cache-control']).toBe('private, no-store');
+      expect(proxy).toHaveBeenCalledWith('/_AMapService/v3/place/text?key=test-js-key');
+    } finally {
+      proxy.mockRestore();
+    }
   });
 
   it('401 without a session cookie', async () => {

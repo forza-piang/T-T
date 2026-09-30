@@ -24,6 +24,7 @@ import {
   deriveHttp,
   deriveIntegrations,
   deriveMcp,
+  deriveMaps,
   deriveNet,
   derivePaths,
   deriveSession,
@@ -37,6 +38,7 @@ import { registerAs } from '@nestjs/config';
  * via readEnv().
  */
 export const httpConfig = registerAs('http', () => deriveHttp(process.env));
+export const mapsConfig = registerAs('maps', () => deriveMaps(process.env));
 export const sessionConfig = registerAs('session', () => deriveSession(process.env));
 export const mcpConfig = registerAs('mcp', () => deriveMcp(process.env));
 export const integrationsConfig = registerAs('integrations', () => deriveIntegrations(process.env));

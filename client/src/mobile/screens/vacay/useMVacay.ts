@@ -6,7 +6,7 @@ import { useAuthStore } from '../../../store/authStore'
 import { useTranslation } from '../../../i18n'
 import { useToast } from '../../../components/shared/Toast'
 import { tripsApi } from '../../../api/client'
-import { isWeekend } from '../../../components/Vacay/holidays'
+import { isWeekend, calendarDayStatus } from '../../../components/Vacay/holidays'
 import { currentPeriodYear, inGridWindow, windowMonths } from '../../../vacay/yearWindow'
 import { FALLBACK_PERSON_COLOR, localDateStr, type DayVisualContext } from './vacayDayModel'
 import { getApiErrorMessage, type Trip } from '../../../types'
@@ -196,7 +196,8 @@ export function useMVacay() {
       await toggleCompanyHoliday(dateStr)
       return
     }
-    if (blockWeekends && isWeekend(dateStr, weekendDays)) {
+    const status = calendarDayStatus(holidays, dateStr);
+      if (status.isHoliday || (blockWeekends && isWeekend(dateStr, weekendDays) && !status.isWorkday)) {
       // A day already logged when the weekend config changed under it (#1897) keeps
       // counting against the entitlement, so clearing it stays possible — with the
       // entry's own fraction/kind, since the server only allows the delete on a
@@ -208,7 +209,7 @@ export function useMVacay() {
     }
     if (companyHolidaysEnabled && companyHolidaySet.has(dateStr)) return
     await toggleEntry(dateStr, selectedUserId || undefined, halfDay ? 0.5 : 1, compDay ? 'comp' : 'vacation')
-  }, [view, months, openMonthSlot, mode, halfDay, compDay, companyHolidaysEnabled, blockWeekends, weekendDays, companyHolidaySet, toggleEntry, toggleCompanyHoliday, selectedUserId, currentUser?.id, entryMap])
+  }, [view, months, openMonthSlot, mode, halfDay, compDay, companyHolidaysEnabled, blockWeekends, weekendDays, holidays, companyHolidaySet, toggleEntry, toggleCompanyHoliday, selectedUserId, currentUser?.id, entryMap])
 
   // Entitlement stepper: never below what is already used this year
   // (carried-over days cover the difference when used > entitlement).

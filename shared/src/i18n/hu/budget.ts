@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "A képernyőképet elküldi a MiniMaxnak, és felhasználja a csomag keretét. Mentés előtt ellenőrizd az eredményt. PNG/JPEG, legfeljebb 12 MB.",
+  "costs.scanReceipt": "Fizetési képernyőkép beolvasása",
+  "costs.scanReceiptHint": "Csak helyi felismerés. Alkalmazás és mentés előtt ellenőrizze a mezőket. PNG/JPEG, legfeljebb 12 MB.",
+  "costs.scanReceiptFailed": "A fizetés nem ismerhető fel. Próbáljon élesebb képet vagy kézi bevitelt.",
+  "costs.scanReceiptApply": "Felismert mezők alkalmazása",
   'costs.confirm.deleteTitle': 'Törlöd a kiadást?',
   'costs.confirm.deleteBody': 'A(z) „{name}” véglegesen törlődik.',
   'budget.title': 'Költségvetés',

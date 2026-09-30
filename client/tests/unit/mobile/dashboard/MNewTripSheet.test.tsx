@@ -250,124 +250,6 @@ describe('MNewTripSheet', () => {
     expect(document.querySelector('img[src="/uploads/covers/a.jpg"]')).toBeInTheDocument();
   });
 
-  it('FE-MOB-NTSH-014: searching with neither a query nor a title asks for a term', async () => {
-    const search = vi.spyOn(tripsApi, 'searchCoverImages');
-    render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
-
-    fireEvent.keyDown(screen.getByPlaceholderText('Search destination photos'), { key: 'Enter' });
-
-    expect(await screen.findByText('Enter a search term')).toBeInTheDocument();
-    expect(search).not.toHaveBeenCalled();
-  });
-
-  it('FE-MOB-NTSH-015: an empty result set is reported as "no images"', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({ photos: [] });
-    render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
-
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'reykjavik' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-
-    expect(await screen.findByText('No images found')).toBeInTheDocument();
-    expect(tripsApi.searchCoverImages).toHaveBeenCalledWith('reykjavik');
-  });
-
-  it('FE-MOB-NTSH-016: a failing search shows the API error message', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockRejectedValue({ response: { data: { error: 'Unsplash key missing' } } });
-    render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
-
-    fireEvent.change(screen.getByPlaceholderText('e.g. Summer in Japan'), { target: { value: 'Iceland' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-
-    expect(await screen.findByText('Unsplash key missing')).toBeInTheDocument();
-  });
-
-  it('FE-MOB-NTSH-017: create mode previews the picked Unsplash photo without a request', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({
-      photos: [{ id: 'p1', url: 'https://img/full.jpg', thumb: 'https://img/thumb.jpg', photographer: 'Ada' }],
-    });
-    const update = vi.spyOn(tripsApi, 'update');
-    render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
-
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'iceland' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-
-    const pick = await screen.findByRole('button', { name: 'Use Unsplash photo by Ada' });
-    expect(screen.getByText('Ada')).toBeInTheDocument();
-    fireEvent.click(pick);
-
-    await waitFor(() => expect(document.querySelector('img[src="https://img/full.jpg"]')).toBeInTheDocument());
-    expect(update).not.toHaveBeenCalled();
-  });
-
-  it('FE-MOB-NTSH-018: a pending Unsplash pick is written to the freshly created trip', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({
-      photos: [{ id: 'p1', url: 'https://img/full.jpg', thumb: 'https://img/thumb.jpg', photographer: null }],
-    });
-    const update = vi.spyOn(tripsApi, 'update').mockResolvedValue({ trip: { id: 77 } as Trip });
-    const onCoverUpdate = vi.fn();
-    render(
-      <MNewTripSheet
-        open
-        trip={null}
-        onClose={() => {}}
-        onSave={async () => ({ trip: { id: 77 } as Trip })}
-        onCoverUpdate={onCoverUpdate}
-      />,
-    );
-
-    fireEvent.change(screen.getByPlaceholderText('e.g. Summer in Japan'), { target: { value: 'Iceland' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Unsplash photo by Unsplash' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Create New Trip' }));
-
-    await waitFor(() => expect(update).toHaveBeenCalledWith(77, { cover_image: 'https://img/full.jpg' }));
-    expect(onCoverUpdate).toHaveBeenCalledWith(77, 'https://img/full.jpg');
-  });
-
-  it('FE-MOB-NTSH-019: a failed cover write after create only toasts', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({
-      photos: [{ id: 'p1', url: 'https://img/full.jpg', thumb: 'https://img/thumb.jpg', photographer: null }],
-    });
-    vi.spyOn(tripsApi, 'update').mockRejectedValue(new Error('offline'));
-    render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={async () => ({ trip: { id: 77 } as Trip })} />);
-
-    fireEvent.change(screen.getByPlaceholderText('e.g. Summer in Japan'), { target: { value: 'Iceland' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Unsplash photo by Unsplash' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Create New Trip' }));
-
-    await waitFor(() => expect(toastCalls).toContainEqual(['Failed to save cover image', 'error']));
-  });
-
-  it('FE-MOB-NTSH-020: edit mode persists an Unsplash pick immediately', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({
-      photos: [{ id: 'p1', url: 'https://img/full.jpg', thumb: 'https://img/thumb.jpg', photographer: 'Ada' }],
-    });
-    const update = vi.spyOn(tripsApi, 'update').mockResolvedValue({ trip: { id: 42 } as Trip });
-    render(<MNewTripSheet open trip={buildDashTrip()} onClose={() => {}} onSave={() => {}} />);
-
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'iceland' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Unsplash photo by Ada' }));
-
-    await waitFor(() => expect(update).toHaveBeenCalledWith(42, { cover_image: 'https://img/full.jpg' }));
-    expect(toastCalls).toContainEqual(['Cover image saved', 'success']);
-  });
-
-  it('FE-MOB-NTSH-021: a failed edit-mode Unsplash pick toasts the API error', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({
-      photos: [{ id: 'p1', url: 'https://img/full.jpg', thumb: 'https://img/thumb.jpg', photographer: 'Ada' }],
-    });
-    vi.spyOn(tripsApi, 'update').mockRejectedValue({ response: { data: { error: 'Storage full' } } });
-    render(<MNewTripSheet open trip={buildDashTrip()} onClose={() => {}} onSave={() => {}} />);
-
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'iceland' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Unsplash photo by Ada' }));
-
-    await waitFor(() => expect(toastCalls).toContainEqual(['Storage full', 'error']));
-  });
-
   it('FE-MOB-NTSH-022: removing a pending cover needs no request', async () => {
     const update = vi.spyOn(tripsApi, 'update');
     render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
@@ -463,69 +345,13 @@ describe('MNewTripSheet', () => {
     expect(screen.queryByRole('button', { name: 'Search Unsplash' })).not.toBeInTheDocument();
   });
 
-  it('FE-MOB-NTSH-030: only the newest search may apply its result', async () => {
-    let resolveFirst: (v: { photos: CoverSearchPhoto[] }) => void = () => {};
-    const search = vi.spyOn(tripsApi, 'searchCoverImages')
-      .mockImplementationOnce(() => new Promise(res => { resolveFirst = res; }))
-      .mockResolvedValueOnce({ photos: [{ id: 'b', url: 'u2', thumb: 't2', photographer: 'Second' }] });
-    render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
-    const button = screen.getByRole('button', { name: 'Search Unsplash' });
-
-    const field = screen.getByPlaceholderText('Search destination photos');
-    fireEvent.change(field, { target: { value: 'a' } });
-    fireEvent.click(button);
-    // The button disables itself while a search runs; Enter still starts the next one.
-    fireEvent.keyDown(field, { key: 'Enter' });
-    await screen.findByRole('button', { name: 'Use Unsplash photo by Second' });
-
-    // The stale first response must not replace the newer results.
-    await act(async () => { resolveFirst({ photos: [{ id: 'a', url: 'u1', thumb: 't1', photographer: 'First' }] }); });
-
-    expect(screen.queryByRole('button', { name: 'Use Unsplash photo by First' })).not.toBeInTheDocument();
-    expect(search).toHaveBeenCalledTimes(2);
-  });
-
-  it('FE-MOB-NTSH-031: a stale search failure does not overwrite the newer results', async () => {
-    let rejectFirst: (e: unknown) => void = () => {};
-    vi.spyOn(tripsApi, 'searchCoverImages')
-      .mockImplementationOnce(() => new Promise((_res, rej) => { rejectFirst = rej; }))
-      .mockResolvedValueOnce({ photos: [{ id: 'b', url: 'u2', thumb: 't2', photographer: 'Second' }] });
-    render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
-    const button = screen.getByRole('button', { name: 'Search Unsplash' });
-
-    const field = screen.getByPlaceholderText('Search destination photos');
-    fireEvent.change(field, { target: { value: 'a' } });
-    fireEvent.click(button);
-    fireEvent.keyDown(field, { key: 'Enter' });
-    await screen.findByRole('button', { name: 'Use Unsplash photo by Second' });
-
-    await act(async () => { rejectFirst(new Error('too late')); });
-
-    expect(screen.queryByText('too late')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Use Unsplash photo by Second' })).toBeInTheDocument();
-  });
-
-  it('FE-MOB-NTSH-032: a result without a full-size url cannot be picked', async () => {
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({
-      photos: [{ id: 'p1', url: '', thumb: 'https://img/thumb.jpg', photographer: 'Ada' }],
-    });
-    const update = vi.spyOn(tripsApi, 'update');
-    render(<MNewTripSheet open trip={buildDashTrip({ cover_image: null })} onClose={() => {}} onSave={() => {}} />);
-
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'iceland' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search Unsplash' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Unsplash photo by Ada' }));
-
-    await waitFor(() => expect(update).not.toHaveBeenCalled());
-    expect(screen.getByText('Add cover image')).toBeInTheDocument();
-  });
-
   it('FE-MOB-NTSH-033: the cover buttons open the device file picker', async () => {
     const click = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
     render(<MNewTripSheet open trip={null} onClose={() => {}} onSave={() => {}} />);
 
     fireEvent.click(screen.getByText('Add cover image'));
     expect(click).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /Unsplash/i })).not.toBeInTheDocument();
 
     fireEvent.change(fileInput(), { target: { files: [png()] } });
     fireEvent.click(await screen.findByText('Change'));

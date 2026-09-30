@@ -44,11 +44,15 @@ export default function MVacayMonth({
         const dateStr = localDateStr(year, month, day);
         const dayOfWeek = new Date(year, month, day).getDay();
         const visual = dayVisual(dateStr, dayOfWeek, ctx);
+        const raw = ctx.holidays[dateStr];
+        const markers = Array.isArray(raw) ? raw : raw ? [raw] : [];
+        const dayTitle = markers.map(h => h.localName).join("、");
         return (
           <button
             key={day}
             type="button"
             aria-label={dateStr}
+            title={dayTitle || undefined}
             onClick={() => onDayTap(dateStr)}
             className={`relative flex aspect-square items-center justify-center font-geist font-bold ${
               mini ? 'rounded-[6px] text-[0.53125rem]' : 'rounded-lg text-[0.75rem]'
@@ -77,6 +81,7 @@ export default function MVacayMonth({
               </div>
             )}
             <span className="relative z-[1]">{day}</span>
+            {visual.workday && <span className="absolute right-0 top-0 text-[7px] text-content-muted" aria-hidden>班</span>}
             {tripDates.has(dateStr) && (
               <span
                 aria-hidden

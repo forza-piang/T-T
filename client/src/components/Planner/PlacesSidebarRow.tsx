@@ -21,6 +21,7 @@ interface MemoPlaceRowProps {
   isTouch?: boolean;
   t: (key: string, params?: Record<string, any>) => string;
   onPlaceClick: (id: number | null) => void;
+  onPlaceFocus?: (id: number) => void;
   onContextMenu: (e: React.MouseEvent, place: Place) => void;
   onAssignToDay: (placeId: number, dayId?: number) => void;
   toggleSelected: (id: number) => void;
@@ -42,6 +43,7 @@ export const MemoPlaceRow = React.memo(function MemoPlaceRow({
   isTouch,
   t,
   onPlaceClick,
+  onPlaceFocus,
   onContextMenu,
   onAssignToDay,
   toggleSelected,
@@ -78,7 +80,16 @@ export const MemoPlaceRow = React.memo(function MemoPlaceRow({
         e.dataTransfer.effectAllowed = 'copy';
         window.__dragData = { placeId: String(place.id) };
       }}
-      onClick={activate}
+      onClick={(e) => {
+        // A double-click includes two click events. Keep the first selection,
+        // but do not toggle it off on the second click before focusing the map.
+        if (e.detail < 2 || selectMode || isMobile) activate();
+      }}
+      onDoubleClick={(e) => {
+        if (selectMode || isMobile || (e.target as HTMLElement).closest('button, a')) return;
+        e.preventDefault();
+        onPlaceFocus?.(place.id);
+      }}
       onKeyDown={(e) => {
         // Only when the row itself has focus — the "+" button inside it keeps its own key handling.
         if (e.target !== e.currentTarget) return;

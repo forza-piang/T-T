@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "将此截图发送到 MiniMax 并消耗套餐额度。请核对识别结果后保存。支持 PNG/JPEG，最大 12 MB。",
+  "costs.scanReceipt": "识别付款截图",
+  "costs.scanReceiptHint": "截图仅在本地服务器识别，请核对后填入并保存。支持 PNG/JPEG，最大 12 MB。",
+  "costs.scanReceiptFailed": "未能识别付款信息，请换一张清晰截图或手动填写。",
+  "costs.scanReceiptApply": "填入识别结果",
   'costs.confirm.deleteTitle': '删除这笔支出？',
   'costs.confirm.deleteBody': '"{name}"将被永久删除。',
   'budget.title': '预算',

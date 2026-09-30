@@ -14,6 +14,7 @@ export interface DayVisual {
   boxShadow?: string
   // At least one person logged this day as a half day (#552) — the cell shows a ½ badge.
   half?: boolean
+  workday?: boolean
   // Per-person fill segments for this day (#1074): each carries the person's tint and
   // whether they logged a comp/flex day (hatched, kind='comp') vs. a vacation day
   // (solid). Set only when someone is off; the cell renders overlays for 2+ people.
@@ -93,7 +94,7 @@ export function hatchTint(color: string): string {
 function baseDayVisual(dateStr: string, dayOfWeek: number, ctx: DayVisualContext): DayVisual {
   const holidayMarkers = ctx.holidays[dateStr]
   const holidays = Array.isArray(holidayMarkers) ? holidayMarkers : holidayMarkers ? [holidayMarkers] : []
-  const publicHoliday = holidays.find(holiday => (holiday.type ?? 'public_holiday') === 'public_holiday')
+  const publicHoliday = holidays.find(holiday => (holiday.type ?? 'public_holiday') === 'public_holiday' && !holiday.isWorkday)
   const schoolColors = holidays.filter(holiday => holiday.type === 'school_holiday').map(holiday => holiday.color)
   // The school band sits on top of any fill (person / company / public), so tag it
   // onto whatever visual this day resolves to rather than picking a single winner.
@@ -132,7 +133,7 @@ function baseDayVisual(dateStr: string, dayOfWeek: number, ctx: DayVisualContext
   if (schoolColors.length > 0) {
     return { background: schoolHolidayWash(schoolColors[0]), numColor: holidayInk(schoolColors[0]), school: schoolColors }
   }
-  if (ctx.weekendDays.includes(dayOfWeek)) {
+  if (ctx.weekendDays.includes(dayOfWeek) && !holidays.some(h => h.isWorkday)) {
     return { background: 'var(--m-ic)', numColor: 'var(--m-faint)' }
   }
   return { background: 'transparent', numColor: 'var(--m-muted)' }
@@ -140,6 +141,9 @@ function baseDayVisual(dateStr: string, dayOfWeek: number, ctx: DayVisualContext
 
 export function dayVisual(dateStr: string, dayOfWeek: number, ctx: DayVisualContext): DayVisual {
   const visual = baseDayVisual(dateStr, dayOfWeek, ctx)
+  const raw = ctx.holidays[dateStr]
+  const markers = Array.isArray(raw) ? raw : raw ? [raw] : []
+  if (markers.some(h => h.isWorkday)) visual.workday = true
   // Today rings whatever the day resolved to, so a vacation day or company
   // holiday logged for today keeps its fill and is visible.
   if (dateStr === ctx.todayStr) {

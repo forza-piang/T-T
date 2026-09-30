@@ -14,6 +14,7 @@ import { useSaveToCollectionStore } from '../../store/saveToCollectionStore'
 import { placeToSaveTarget } from '../Collections/saveTarget'
 import type { Place, Category, Day, AssignmentsMap } from '../../types'
 import { getGoogleMapsUrlForPlace } from './placeGoogleMaps'
+import { getAmapMapsUrlForPlace } from './placeAmapMaps'
 import { safeHttpUrl } from '../../utils/safeUrl'
 import { plannedPlaceIds, type PlannedAccommodation } from '../../utils/plannedPlaces'
 
@@ -30,6 +31,7 @@ export interface PlacesSidebarProps {
   selectedDayId: number | null
   selectedPlaceId: number | null
   onPlaceClick: (placeId: number | null) => void
+  onPlaceFocus?: (placeId: number) => void
   onAddPlace: () => void
   onAssignToDay: (placeId: number, dayId: number) => void
   onEditPlace: (place: Place) => void
@@ -285,11 +287,13 @@ export function usePlacesSidebar(props: PlacesSidebarProps) {
   const openContextMenu = useCallback((e: React.MouseEvent, place: Place) => {
     const selDayId = selectedDayIdRef.current
     const googleMapsUrl = getGoogleMapsUrlForPlace(place)
+    const amapMapsUrl = getAmapMapsUrlForPlace(place)
     ctxMenu.open(e, [
       canEditPlaces && { label: t('common.edit'), icon: Pencil, onClick: () => props.onEditPlace(place) },
       selDayId && { label: t('planner.addToDay'), icon: CalendarDays, onClick: () => props.onAssignToDay(place.id, selDayId) },
       safeHttpUrl(place.website) && { label: t('inspector.website'), icon: ExternalLink, onClick: () => window.open(safeHttpUrl(place.website)!, '_blank', 'noopener,noreferrer') },
       googleMapsUrl && { label: t('inspector.google'), icon: Navigation, onClick: () => window.open(googleMapsUrl, '_blank') },
+      amapMapsUrl && { label: t('planner.openAmapMaps'), icon: Navigation, onClick: () => window.open(amapMapsUrl, '_blank', 'noopener,noreferrer') },
       collectionsEnabled && { label: t('inspector.saveToCollection'), icon: Bookmark, onClick: () => useSaveToCollectionStore.getState().open(placeToSaveTarget(place)) },
       { divider: true },
       canEditPlaces && { label: t('common.delete'), icon: Trash2, danger: true, onClick: () => props.onDeletePlace(place.id) },

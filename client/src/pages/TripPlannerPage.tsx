@@ -450,6 +450,8 @@ function TripPlannerPageDesktop(): React.ReactElement | null {
     routeVias,
     fitKey,
     setFitKey,
+    focusPlaceKey,
+    handlePlaceFocus,
     mobileSidebarOpen,
     setMobileSidebarOpen,
     mobilePlanScrollTopRef,
@@ -733,6 +735,7 @@ function TripPlannerPageDesktop(): React.ReactElement | null {
               // falls back to the world view when the trip has none.
               tileUrl={mapTileUrl}
               fitKey={fitKey}
+              focusPlaceKey={focusPlaceKey}
               dayOrderMap={dayOrderMap}
               leftWidth={leftPanelPx}
               rightWidth={rightPanelPx}
@@ -1226,6 +1229,7 @@ function TripPlannerPageDesktop(): React.ReactElement | null {
                     </LazyPanel>
                   ) : (
                     <PlacesSidebar
+                          onPlaceFocus={handlePlaceFocus}
                       tripId={tripId}
                       places={places}
                       categories={categories}
@@ -1700,6 +1704,7 @@ function TripPlannerPageDesktop(): React.ReactElement | null {
                         />
                       ) : (
                         <PlacesSidebar
+                          onPlaceFocus={handlePlaceFocus}
                           tripId={tripId}
                           places={places}
                           categories={categories}

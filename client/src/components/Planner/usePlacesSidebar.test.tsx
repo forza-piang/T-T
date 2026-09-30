@@ -814,3 +814,30 @@ describe('usePlacesSidebar context menu', () => {
     });
   });
 });
+
+
+describe('usePlacesSidebar AMap navigation', () => {
+  it('opens the located place in AMap with a safe new tab', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    try {
+      const place = buildPlace({ id: 3, name: '外滩', lat: 31.24, lng: 121.49 });
+      render(<Host {...makeProps({ places: [place] })} />);
+      fireEvent.contextMenu(screen.getByTestId('row-3'));
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Open in AMap' }));
+      expect(open).toHaveBeenCalledWith(
+        'https://uri.amap.com/marker?position=121.49,31.24&coordinate=wgs84&src=tt-travel-planner&name=' + encodeURIComponent('外滩'),
+        '_blank',
+        'noopener,noreferrer',
+      );
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it('hides AMap navigation when the place has no coordinates', () => {
+    const place = buildPlace({ id: 3, lat: null, lng: null });
+    render(<Host {...makeProps({ places: [place] })} />);
+    fireEvent.contextMenu(screen.getByTestId('row-3'));
+    expect(screen.queryByRole('button', { name: 'Open in AMap' })).not.toBeInTheDocument();
+  });
+});

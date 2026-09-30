@@ -1569,14 +1569,14 @@ describe('quirk fixes', () => {
     expect(testDb.prepare('SELECT id FROM vacay_entries WHERE plan_id = ?').get(plan.id)).toBeDefined();
   });
 
-  it('VACAY-SVC-070: getCountries surfaces an upstream non-2xx as the fetch error and caches nothing', async () => {
+  it('VACAY-SVC-070: getCountries keeps local China available on upstream errors and caches nothing', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => ({}) });
     vi.stubGlobal('fetch', fetchMock);
     const fresh = new VacayService(new DatabaseService(testDb), new RealtimeService(), notificationsStub());
 
-    expect(await fresh.getCountries()).toEqual({ error: 'Failed to fetch countries' });
+    expect(await fresh.getCountries()).toEqual({ data: [{ countryCode: 'CN', name: 'China' }] });
     // Nothing cached: a retry hits the network again.
-    expect(await fresh.getCountries()).toEqual({ error: 'Failed to fetch countries' });
+    expect(await fresh.getCountries()).toEqual({ data: [{ countryCode: 'CN', name: 'China' }] });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.any(String),
@@ -1620,7 +1620,7 @@ describe('quirk fixes', () => {
     vi.stubGlobal('fetch', fetchMock);
     const fresh = new VacayService(new DatabaseService(testDb), new RealtimeService(), notificationsStub());
 
-    expect(await fresh.getCountries()).toEqual({ error: 'Failed to fetch countries' });
+    expect(await fresh.getCountries()).toEqual({ data: [{ countryCode: 'CN', name: 'China' }] });
     expect(await fresh.getHolidays('2026', 'DE')).toEqual({ error: 'Failed to fetch holidays' });
   });
 
@@ -1648,7 +1648,7 @@ describe('quirk fixes', () => {
     const fresh = new VacayService(new DatabaseService(testDb), new RealtimeService(), notificationsStub());
 
     expect(await fresh.getHolidays('2026', 'DE')).toEqual({ error: 'Failed to fetch holidays' });
-    expect(await fresh.getCountries()).toEqual({ error: 'Failed to fetch countries' });
+    expect(await fresh.getCountries()).toEqual({ data: [{ countryCode: 'CN', name: 'China' }] });
   });
 
   it('VACAY-SVC-071: applyHolidayCalendars honors the cache TTL', async () => {
@@ -1687,5 +1687,30 @@ describe('quirk fixes', () => {
     expect(
       testDb.prepare('SELECT id FROM vacay_years WHERE plan_id = ? AND year = ?').get(plan.id, year + 1),
     ).toBeUndefined();
+  });
+});
+
+
+describe('China calendar and make-up workdays', () => {
+  it('serves official CN dates without network and refuses unpublished years', async () => {
+    const fetchMock = vi.mocked(fetch); fetchMock.mockClear();
+    const result = await svc.getHolidays('2026', 'CN');
+    expect(result.data).toEqual(expect.arrayContaining([expect.objectContaining({ date: '2026-10-10', isWorkday: true })]));
+    expect((await svc.getHolidays('2027', 'CN')).error).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it('allows leave on a make-up Saturday but rejects a public holiday', async () => {
+    const { user, plan } = setupUserWithPlan();
+    await svc.updatePlan(plan.id, { holidays_enabled: true }, undefined);
+    expect(svc.toggleEntry(user.id, plan.id, '2026-10-10').action).toBe('added');
+    expect(svc.toggleEntry(user.id, plan.id, '2026-10-01').error).toBe('public_holiday_blocked');
+    expect(svc.toggleEntry(user.id, plan.id, '2026-10-11').error).toBe('weekend_blocked');
+    await svc.applyHolidayCalendars(plan.id);
+    expect(testDb.prepare('SELECT date FROM vacay_entries WHERE plan_id = ?').all(plan.id)).toEqual([{ date: '2026-10-10' }]);
+  });
+  it('does not change weekend rules when CN calendar is disabled', async () => {
+    const { user, plan } = setupUserWithPlan();
+    await svc.updatePlan(plan.id, { holidays_enabled: false }, undefined);
+    expect(svc.toggleEntry(user.id, plan.id, '2026-10-10').error).toBe('weekend_blocked');
   });
 });

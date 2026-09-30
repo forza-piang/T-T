@@ -1,3 +1,5 @@
+import type { HolidaysMap } from '../../types'
+
 const BUNDESLAENDER: Record<string, string> = {
   BW: 'Baden-Württemberg',
   BY: 'Bayern',
@@ -128,3 +130,13 @@ export function formatDate(dateStr: string, locale?: string): string {
 }
 
 export { BUNDESLAENDER }
+
+/** A make-up workday overrides the usual weekend; a holiday does not spend leave. */
+export function calendarDayStatus(holidays: HolidaysMap, date: string): { isWorkday: boolean; isHoliday: boolean } {
+  const raw = holidays[date]
+  const markers = Array.isArray(raw) ? raw : raw ? [raw] : []
+  return {
+    isWorkday: markers.some(h => h.isWorkday === true),
+    isHoliday: markers.some(h => (h.type ?? 'public_holiday') === 'public_holiday' && h.isWorkday === false),
+  }
+}

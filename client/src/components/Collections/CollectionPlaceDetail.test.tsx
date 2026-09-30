@@ -263,6 +263,27 @@ describe('CollectionPlaceDetail', () => {
     expect(photo).not.toHaveBeenCalled();
   });
 
+  it('FE-COMP-COLDETAIL-018c: amap_id wins over coordinates in the photo chain', async () => {
+    // Regression: a place carrying both an amap_id and coordinates must not
+    // degrade to a coord-only pin.
+    server.use(
+      http.get('/api/maps/place-photo/:id', ({ params }) => {
+        expect(params.id).toBe('amap:B0MRJ44YYT');
+        return HttpResponse.json({ photoUrl: 'https://cdn.example/amap.jpg', attribution: null });
+      })
+    );
+    renderDetail({
+      place: { ...place, amap_id: 'B0MRJ44YYT', lat: 31.24, lng: 121.49 },
+    });
+
+    await waitFor(() =>
+      expect(document.querySelector('.col-detail-cover img')).toHaveAttribute(
+        'src',
+        'https://cdn.example/amap.jpg',
+      )
+    );
+  });
+
   it('FE-COMP-COLDETAIL-019: the category chip and the assigned label chips render in read mode', async () => {
     renderDetail({ labels: LABELS, place: { ...place, label_ids: [1] } });
     expect(await screen.findByText('Food')).toBeInTheDocument();
@@ -511,8 +532,8 @@ describe('CollectionPlaceDetail — open in maps', () => {
 
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByRole('menuitem', { name: 'Google Maps' })).toBeInTheDocument();
-    expect(within(menu).getByRole('menuitem', { name: 'Waze' })).toBeInTheDocument();
-    expect(within(menu).getByRole('menuitem', { name: 'OpenStreetMap' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Apple Maps' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'AMap' })).toBeInTheDocument();
   });
 
   it('FE-COMP-COLDETAIL-037: opening a target hands the coordinates and the name over', async () => {
@@ -521,7 +542,7 @@ describe('CollectionPlaceDetail — open in maps', () => {
     renderDetail({ place: located });
 
     await user.click(screen.getByRole('button', { name: 'Navigation' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Waze' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Apple Maps' }));
 
     // Both, so it lands on the place rather than on a bare pin.
     const url = String(open.mock.calls[0][0]);
@@ -534,15 +555,12 @@ describe('CollectionPlaceDetail — open in maps', () => {
     const user = userEvent.setup();
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
     // No coordinates and no provider id — the state a place typed in by hand is
-    // in. The apps that need a pin drop out; the two that can take a search
-    // string are still offered.
+    // in. AMap and Apple need coordinates, so they drop out; Google still
+    // resolves by name+address, becomes the single target, and the trigger
+    // carries its label rather than the menu's heading.
     renderDetail();
 
-    await user.click(screen.getByRole('button', { name: 'Navigation' }));
-    const menu = await screen.findByRole('menu');
-    expect(within(menu).queryByRole('menuitem', { name: 'Waze' })).toBeNull();
-
-    await user.click(within(menu).getByRole('menuitem', { name: 'Google Maps' }));
+    await user.click(await screen.findByRole('button', { name: 'Google Maps' }));
 
     expect(String(open.mock.calls[0][0])).toContain(encodeURIComponent('Test Cafe, Somewhere'));
     open.mockRestore();

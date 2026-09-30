@@ -1,0 +1,18 @@
+# Merge after docker-compose.yml. Build locally before starting the app.
+services:
+  app:
+    image: tt-planner:0.8.1-cn.7
+    pull_policy: never
+    build:
+      args:
+        APP_VERSION: 0.8.1-cn.7
+    environment:
+      APP_VERSION: 0.8.1-cn.7
+      TZ: ${TZ:-Asia/Shanghai}
+      DEFAULT_LANGUAGE: zh
+      APP_URL: ${APP_URL:-}
+      FORCE_HTTPS: ${FORCE_HTTPS:-false}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      AMAP_JS_API_KEY: ${AMAP_JS_API_KEY:-}
+      AMAP_SECURITY_JS_CODE: ${AMAP_SECURITY_JS_CODE:-}
+      MINIMAX_RECEIPT_API_KEY: ${MINIMAX_RECEIPT_API_KEY:-}

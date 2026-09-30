@@ -133,13 +133,22 @@ export async function buildApp(): Promise<INestApplication> {
    * book can actually be. Everything else keeps the tighter limit.
    */
   const bookBody = express.json({ limit: '8mb', verify: rawBodyKeeper });
+  // The receipt-OCR endpoint receives a base64 PNG / JPEG of a payment
+  // screenshot. ~5.6 MiB of base64 fits inside a 6 MiB body, and the schema
+  // further caps the decoded image at 4 MiB (see receipt-ocr.schema.ts).
+  // Only this one route gets the larger ceiling; the rest of the API keeps
+  // its 100 KiB ceiling below.
+  const receiptOcrBody = express.json({ limit: '6mb', verify: rawBodyKeeper });
   const json = express.json({ limit: '100kb', verify: rawBodyKeeper });
   const urlencoded = express.urlencoded({ limit: '100kb', extended: true, verify: rawBodyKeeper });
   const isMcp = (req: Request) => req.path === '/mcp' || req.path === '/mcp/';
   const isBookWrite = (req: Request) => req.method === 'PUT' && /^\/api\/journeys\/\d+\/book$/.test(req.path);
+  const isReceiptOcrScan = (req: Request) =>
+    req.method === 'POST' && /^\/api\/trips\/\d+\/budget\/scan-receipt$/.test(req.path);
 
   instance.use(function jsonParser(req: Request, res: Response, next: NextFunction) {
     if (isBookWrite(req)) return bookBody(req, res, next);
+    if (isReceiptOcrScan(req)) return receiptOcrBody(req, res, next);
     return isMcp(req) ? next() : json(req, res, next);
   });
   instance.use(function urlencodedParser(req: Request, res: Response, next: NextFunction) {

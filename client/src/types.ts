@@ -434,6 +434,7 @@ export interface VacayYearSettings {
 }
 
 export interface HolidayInfo {
+  isWorkday?: boolean;
   name: string;
   localName: string;
   color: string;

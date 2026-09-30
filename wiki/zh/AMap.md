@@ -66,7 +66,7 @@ AMap 有两个独立的密钥，用途不同。两者都由管理员填写。
 
 ### 导航
 
-带有 AMap POI id 的地点，会在其导航菜单中得到一项 **AMap**，与 Google Maps、Apple Maps、Waze 等并列。该链接优先使用 POI id，这样打开的是精确的商家而不是一个坐标点；没有 POI id 时，则回退到坐标加地点名称。
+本国内适配分支的地点导航菜单仅保留 **高德地图、Apple Maps 和 Google Maps**。高德导航优先使用 AMap POI id；没有 POI id 时，使用转换后的坐标和地点名称。
 
 ## 从 AMap 链接或分享文本导入
 
@@ -98,3 +98,18 @@ AMap 有两个独立的密钥，用途不同。两者都由管理员填写。
 - [地点与搜索](Places-and-Search) —— 搜索框和提供商切换
 - [地图功能](Map-Features) —— 标记、聚合、POI 探索
 - [路线优化](Route-Optimization) —— 路线配置与回退行为
+
+
+## 此部署的安全密钥代理（0.8.1-cn.1）
+
+此定制版本在加载 JS SDK 前设置同源 `/_AMapService`。服务器通过
+`AMAP_JS_API_KEY` 和 `AMAP_SECURITY_JS_CODE` 配置对应的 JS Key 与安全密钥；
+二者应放在部署目录受保护的 secret/env 文件中，不进入镜像或 Git。
+Web 服务 Key 仍由管理员通过应用原有 API 保存并加密。
+
+代理只接受已登录会话、GET 请求和高德固定主机下的版本化路径，设置超时和
+8 MiB 响应限制，不转发用户 Cookie 或 Authorization，不跟随上游重定向。
+浏览器使用的 JS Key 必须与实例配置匹配。匿名分享页不使用此认证代理。
+
+这不会消除上游的 Google/OSM/OSRM 回退逻辑。后续升级上游镜像时，需要重新
+合并此补丁并运行相关检查，不能直接用原版镜像覆盖后仍期待保留适配。

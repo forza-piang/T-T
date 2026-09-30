@@ -1,10 +1,8 @@
 // FE-MOB-COLEDIT-001 to FE-MOB-COLEDIT-014
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
 import { render, screen, fireEvent, waitFor } from '../../../helpers/render'
-import { server } from '../../../helpers/msw/server'
 import type { Collection } from '@trek/shared'
 import MCollEditSheet from '../../../../src/mobile/screens/collections/MCollEditSheet'
 import { useCollectionStore } from '../../../../src/store/collectionStore'
@@ -52,10 +50,6 @@ const origRevokeObjectURL = URL.revokeObjectURL
 
 function stubObjectUrl(fn: unknown) {
   Object.defineProperty(URL, 'createObjectURL', { writable: true, configurable: true, value: fn })
-}
-
-function unsplash(photos: Record<string, unknown>[]) {
-  server.use(http.get('/api/trips/cover-images/search', () => HttpResponse.json({ photos })))
 }
 
 /** The cover images carry no alt text, so they are addressed by src. */
@@ -164,6 +158,7 @@ describe('MCollEditSheet', () => {
 
     expect(screen.getByRole('button', { name: SWATCH_COLORS[0] })).toHaveAttribute('aria-pressed', 'true')
     expect(document.querySelector('img')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Unsplash/i })).not.toBeInTheDocument();
     expect(screen.getByText('collections.addCover')).toBeInTheDocument()
   })
 
@@ -193,63 +188,6 @@ describe('MCollEditSheet', () => {
 
     fireEvent.change(input, { target: { files: [] } })
     expect(document.querySelector('img')).toBeNull()
-  })
-
-  it('FE-MOB-COLEDIT-008: the Unsplash search offers photos and the pick is sent as cover_image', async () => {
-    const user = userEvent.setup()
-    unsplash([
-      { id: 'p1', url: 'https://img/full1.jpg', thumb: 'https://img/t1.jpg', description: 'Canal', photographer: 'Ada' },
-      { id: 'p2', url: 'https://img/full2.jpg', thumb: 'https://img/t2.jpg' },
-    ])
-    render(<MCollEditSheet {...baseProps()} />)
-
-    await user.type(screen.getByPlaceholderText('dashboard.unsplashSearchPlaceholder'), 'copenhagen')
-    await user.click(screen.getByRole('button', { name: /Unsplash/ }))
-
-    const photo = await screen.findByRole('button', { name: 'Ada' })
-    // The photographer credit is shown; a photo without one still renders its thumb.
-    expect(screen.getByText('Ada')).toBeInTheDocument()
-    expect(imageWithSrc('https://img/t2.jpg')).not.toBeNull()
-
-    await user.click(photo)
-    // The picked photo becomes the preview above the grid.
-    expect(imageWithSrc('https://img/full1.jpg')).not.toBeNull()
-    await user.type(screen.getByPlaceholderText('collections.listNamePlaceholder'), 'Kopenhagen')
-    await user.click(screen.getByRole('button', { name: 'collections.create' }))
-
-    await waitFor(() => expect(createCollection).toHaveBeenCalledTimes(1))
-    expect(createCollection).toHaveBeenCalledWith(expect.objectContaining({ cover_image: 'https://img/full1.jpg' }))
-    expect(uploadCover).not.toHaveBeenCalled()
-  })
-
-  it('FE-MOB-COLEDIT-009: a photo without a url is not selectable and a failing search clears the grid', async () => {
-    const user = userEvent.setup()
-    unsplash([{ id: 'p0', url: '', thumb: 'https://img/t0.jpg', photographer: 'Nobody' }])
-    render(<MCollEditSheet {...baseProps()} />)
-
-    await user.type(screen.getByPlaceholderText('collections.listNamePlaceholder'), 'Kopenhagen')
-    // With no query the list name is used as the search term.
-    await user.click(screen.getByRole('button', { name: /Unsplash/ }))
-    await user.click(await screen.findByRole('button', { name: 'Nobody' }))
-    // Only the thumb is on screen — a url-less photo never becomes the cover.
-    expect(imageWithSrc('https://img/t0.jpg')).not.toBeNull()
-    expect(document.querySelectorAll('img')).toHaveLength(1)
-
-    server.use(http.get('/api/trips/cover-images/search', () => new HttpResponse(null, { status: 500 })))
-    await user.click(screen.getByRole('button', { name: /Unsplash/ }))
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Nobody' })).not.toBeInTheDocument())
-  })
-
-  it('FE-MOB-COLEDIT-010: Unsplash stays idle while there is neither a query nor a name', async () => {
-    const user = userEvent.setup()
-    const search = vi.fn(() => HttpResponse.json({ photos: [] }))
-    server.use(http.get('/api/trips/cover-images/search', search))
-    render(<MCollEditSheet {...baseProps()} />)
-
-    expect(screen.getByRole('button', { name: /Unsplash/ })).toBeDisabled()
-    // Enter bypasses the disabled button, so the guard has to hold there too.
-    await user.type(screen.getByPlaceholderText('dashboard.unsplashSearchPlaceholder'), '   {Enter}')
-    expect(search).not.toHaveBeenCalled()
   })
 
   it('FE-MOB-COLEDIT-011: a failed save reports the error and a retry updates the already-created list', async () => {

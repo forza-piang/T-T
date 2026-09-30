@@ -1,3 +1,4 @@
+import { ReceiptOcrService } from '../../src/nest/budget/receipt-ocr.service';
 /**
  * Budget module e2e — exercises the migrated /api/trips/:tripId/budget endpoints
  * through the real JwtAuthGuard against a temp SQLite db carrying the full real
@@ -277,4 +278,26 @@ describe('Budget e2e (real auth guard + temp SQLite, real budget SQL)', () => {
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Settlement not found' });
   });
+  it('OCR uses trip permission checks and returns fields without saving an expense', async () => {
+    const scan = vi.spyOn(app.get(ReceiptOcrService), 'scan').mockResolvedValue({ text: '合成测试', amount: '128.50', currency: 'CNY' });
+    const url = `/api/trips/${tripId}/budget/scan-receipt`;
+    const body = { imageBase64: Buffer.from('synthetic').toString('base64') };
+    try {
+      expect((await request(server).post(url).send(body)).status).toBe(401);
+      canAccessTrip.mockReturnValue(undefined);
+      expect((await request(server).post(url).set('Cookie', sessionCookie(1)).send(body)).status).toBe(404);
+      canAccessTrip.mockReturnValue({ id: tripId, user_id: 1, currency: 'EUR' });
+      checkPermission.mockReturnValue(false);
+      expect((await request(server).post(url).set('Cookie', sessionCookie(1)).send(body)).status).toBe(403);
+      checkPermission.mockReturnValue(true);
+      expect((await request(server).post(url).set('Cookie', sessionCookie(1)).send({ imageBase64: 'invalid!' })).status).toBe(400);
+      expect(scan).not.toHaveBeenCalled();
+      const before = db.prepare('SELECT COUNT(*) AS n FROM budget_items').get();
+      const result = await request(server).post(url).set('Cookie', sessionCookie(1)).send(body);
+      expect(result.status).toBe(200);
+      expect(result.body.amount).toBe('128.50');
+      expect(db.prepare('SELECT COUNT(*) AS n FROM budget_items').get()).toEqual(before);
+    } finally { scan.mockRestore(); }
+  });
+
 });

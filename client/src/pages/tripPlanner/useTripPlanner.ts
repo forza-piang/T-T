@@ -654,6 +654,7 @@ export function useTripPlanner() {
   const dawarichTrail = useDawarichTrail(tripId, dawarichTrailShown);
 
   const [fitKey, setFitKey] = useState<number>(0);
+  const [focusPlaceKey, setFocusPlaceKey] = useState(0);
   const initialFitTripId = useRef<number | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<'left' | 'right' | null>(null);
   const mobilePlanScrollTopRef = useRef<number>(0);
@@ -1006,6 +1007,11 @@ export function useTripPlanner() {
     },
     [selectAssignment, setSelectedPlaceId]
   );
+
+  const handlePlaceFocus = useCallback((placeId: number) => {
+    handlePlaceClick(placeId);
+    setFocusPlaceKey(key => key + 1);
+  }, [handlePlaceClick]);
 
   const handleMarkerClick = useCallback(
     (placeId?: number) => {
@@ -3358,6 +3364,8 @@ export function useTripPlanner() {
     routeVias,
     fitKey,
     setFitKey,
+    focusPlaceKey,
+    handlePlaceFocus,
     mobileSidebarOpen,
     setMobileSidebarOpen,
     mobilePlanScrollTopRef,

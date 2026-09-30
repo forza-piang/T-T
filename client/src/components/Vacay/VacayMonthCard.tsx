@@ -144,21 +144,24 @@ export default function VacayMonthCard({
 
           const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
           const dayOfWeek = new Date(year, month, day).getDay();
-          const weekend = weekendDays.includes(dayOfWeek);
+
           const rawHolidayMarkers = holidays[dateStr];
           const holidayMarkers = Array.isArray(rawHolidayMarkers)
             ? rawHolidayMarkers
             : rawHolidayMarkers
               ? [rawHolidayMarkers]
               : [];
-          const publicHoliday = holidayMarkers.find((h) => (h.type ?? 'public_holiday') === 'public_holiday');
+          const workday = holidayMarkers.find((h) => h.isWorkday);
+          const weekend = weekendDays.includes(dayOfWeek) && !workday;
+          const publicHoliday = holidayMarkers.find((h) => (h.type ?? 'public_holiday') === 'public_holiday' && !h.isWorkday);
+          const dayLabel = publicHoliday ?? workday;
           const schoolHolidayMarkers = holidayMarkers.filter((h) => h.type === 'school_holiday');
           const isCompany = companyHolidaysEnabled && companyHolidaySet.has(dateStr);
           const dayEntries = entryMap[dateStr] || [];
           const hasEntries = dayEntries.length > 0;
           // A blocked weekend day that still carries an entry (#1897) stays clickable —
           // the click clears the stranded day rather than logging a new one.
-          const isBlocked = (weekend && blockWeekends && !hasEntries) || (isCompany && !companyMode);
+          const isBlocked = ((publicHoliday?.isWorkday === false || (weekend && blockWeekends)) && !hasEntries) || (isCompany && !companyMode);
           const isToday = dateStr === todayStr;
           const plain = !hasEntries && holidayMarkers.length === 0 && !isCompany;
 
@@ -212,10 +215,10 @@ export default function VacayMonthCard({
             <div
               key={di}
               title={
-                publicHoliday
-                  ? publicHoliday.label
-                    ? `${publicHoliday.label}: ${publicHoliday.localName}`
-                    : publicHoliday.localName
+                dayLabel
+                  ? dayLabel.label
+                    ? `${dayLabel.label}: ${dayLabel.localName}`
+                    : dayLabel.localName
                   : undefined
               }
               // Stays a div: the cell is a grid item that stacks the segment,
@@ -247,6 +250,7 @@ export default function VacayMonthCard({
                 if (hasEntries || sharedColors.length > 0 || schoolHolidayMarkers.length > 0) onCellHover?.(null, null);
               }}
             >
+              {workday && <span className="absolute right-0 top-0 text-[8px] text-content-muted" aria-hidden>班</span>}
               {/* 2 people: diagonal split — each half solid (vacation) or hatched (comp) (#1074). */}
               {dayEntries.length === 2 && (
                 <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: 10 }}>

@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "Skickar skärmbilden till MiniMax och använder din abonnemangskvot. Kontrollera resultatet innan du sparar. PNG/JPEG, högst 12 MB.",
+  "costs.scanReceipt": "Läs betalningsbild",
+  "costs.scanReceiptHint": "Endast lokal igenkänning. Kontrollera fälten innan du tillämpar och sparar. PNG/JPEG, högst 12 MB.",
+  "costs.scanReceiptFailed": "Betalningen kunde inte identifieras. Prova en tydligare bild eller fyll i manuellt.",
+  "costs.scanReceiptApply": "Använd identifierade fält",
   'costs.confirm.deleteTitle': 'Ta bort utgift?',
   'costs.confirm.deleteBody': '"{name}" tas bort permanent.',
   'budget.title': 'Budget',

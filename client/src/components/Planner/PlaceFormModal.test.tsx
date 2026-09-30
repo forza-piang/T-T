@@ -9,6 +9,7 @@ import { useAddonStore } from '../../store/addonStore';
 import { useAuthStore } from '../../store/authStore';
 import { usePermissionsStore } from '../../store/permissionsStore';
 import { useTripStore } from '../../store/tripStore';
+import type { PlaceDetailsSelection } from './PlaceDetailsColumn';
 import PlaceFormModal from './PlaceFormModal';
 
 // Mock CustomTimePicker so we get a simple text input instead of the portal-heavy UI
@@ -32,6 +33,16 @@ vi.mock('../shared/CustomTimePicker', () => ({
   ),
 }));
 
+// Capture the selection passed to PlaceDetailsColumn without
+// standing up the network layer the real column uses.
+const placeDetailsSelectionSpy = vi.fn<(selection: PlaceDetailsSelection | null) => void>();
+vi.mock('./PlaceDetailsColumn', () => ({
+  default: ({ selection }: { selection: PlaceDetailsSelection | null }) => {
+    placeDetailsSelectionSpy(selection);
+    return null;
+  },
+}));
+
 const defaultProps = {
   isOpen: true,
   onClose: vi.fn(),
@@ -49,6 +60,7 @@ beforeEach(() => {
   resetAllStores();
   seedStore(useAuthStore, { user: buildUser(), isAuthenticated: true, hasMapsKey: false });
   seedStore(useTripStore, { trip: buildTrip({ id: 1 }) });
+  placeDetailsSelectionSpy.mockClear();
 });
 
 describe('PlaceFormModal', () => {
@@ -168,6 +180,28 @@ describe('PlaceFormModal', () => {
 
     rerender(<PlaceFormModal {...defaultProps} place={null} isOpen={false} />);
     expect(screen.queryByDisplayValue('Old Place')).not.toBeInTheDocument();
+  });
+
+  it('FE-PLANNER-PLACEFORM-075: editing an amap_id-only place derives amap:<id> for the details column', () => {
+    placeDetailsSelectionSpy.mockClear();
+    const place = buildPlace({
+      id: 5,
+      name: 'Hotel Bund',
+      lat: 31.24,
+      lng: 121.49,
+      google_place_id: null,
+      osm_id: null,
+      amap_id: 'B0MRJ44YYT',
+    });
+    render(<PlaceFormModal {...defaultProps} place={place} />);
+
+    const last = placeDetailsSelectionSpy.mock.calls[placeDetailsSelectionSpy.mock.calls.length - 1]?.[0];
+    expect(last).toEqual({
+      placeId: 'amap:B0MRJ44YYT',
+      lat: 31.24,
+      lng: 121.49,
+      name: 'Hotel Bund',
+    });
   });
 
   // ── Maps search ──────────────────────────────────────────────────────────────

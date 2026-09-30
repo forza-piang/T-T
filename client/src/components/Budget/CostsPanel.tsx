@@ -1,3 +1,4 @@
+import ReceiptScanner from './ReceiptScanner';
 import {
   AlertCircle,
   ArrowDown,
@@ -3003,6 +3004,13 @@ export function ExpenseModal({
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          {!editing && splitMode === 'equally' && <ReceiptScanner tripId={tripId} onApply={result => {
+            if (result.name) setName(result.name);
+            if (result.amount) setTotal(result.amount);
+            if (result.currency) setCurrency(result.currency);
+            if (result.date) setDay(result.date);
+            if (result.category) setCat(result.category);
+          }} />}
           <div className={panelCls} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <label className={labelCls}>{t('costs.whatFor')}</label>
@@ -3111,6 +3119,7 @@ export function ExpenseModal({
                   <button
                     type="button"
                     key={c.key}
+                    aria-pressed={on}
                     onClick={() => setCat(c.key)}
                     className={
                       on

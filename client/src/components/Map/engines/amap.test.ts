@@ -33,6 +33,7 @@ describe('loadAmap', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     delete (window as Window & { AMap?: unknown }).AMap
+    delete (window as Window & { _AMapSecurityConfig?: unknown })._AMapSecurityConfig
     document.querySelector('script[data-trek-amap]')?.remove()
   })
 
@@ -44,6 +45,22 @@ describe('loadAmap', () => {
     await expect(loadAmap()).resolves.toBe(api)
     expect(append).not.toHaveBeenCalled()
   })
+
+  it('configures the same-origin signing proxy before loading the SDK, without a browser secret', async () => {
+    const append = document.head.appendChild.bind(document.head);
+    vi.spyOn(document.head, 'appendChild').mockImplementation((node) => {
+      expect((window as Window & { _AMapSecurityConfig?: unknown })._AMapSecurityConfig).toEqual({
+        serviceHost: `${window.location.origin}/_AMapService`,
+      });
+      return append(node);
+    });
+    const promise = loadAmap('test-proxy-key');
+    const script = document.querySelector<HTMLScriptElement>('script[data-trek-amap]')!;
+    const api = { Map: class {}, Marker: class {}, Polyline: class {}, InfoWindow: class {}, LngLat: class {} };
+    (window as Window & { AMap?: unknown }).AMap = api;
+    script.onload?.(new Event('load'));
+    await expect(promise).resolves.toBe(api);
+  });
 
   it('loads an existing marked script and resolves after it exposes AMap', async () => {
     const script = document.createElement('script')

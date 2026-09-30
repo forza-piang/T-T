@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "Gửi ảnh chụp màn hình này đến MiniMax và sử dụng hạn mức gói của bạn. Kiểm tra kết quả trước khi lưu. PNG/JPEG, tối đa 12 MB.",
+  "costs.scanReceipt": "Đọc ảnh chụp thanh toán",
+  "costs.scanReceiptHint": "Chỉ nhận dạng trên máy chủ nội bộ. Kiểm tra các trường trước khi áp dụng và lưu. PNG/JPEG, tối đa 12 MB.",
+  "costs.scanReceiptFailed": "Không nhận dạng được thanh toán. Thử ảnh rõ hơn hoặc nhập thủ công.",
+  "costs.scanReceiptApply": "Áp dụng các trường đã nhận dạng",
   'costs.confirm.deleteTitle': 'Xóa khoản chi?',
   'costs.confirm.deleteBody': '"{name}" sẽ bị xóa vĩnh viễn.',
   'budget.title': 'Ngân sách',

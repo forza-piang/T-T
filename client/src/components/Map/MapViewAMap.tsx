@@ -1,8 +1,10 @@
+import { POI_CATEGORY_BY_KEY } from './poiCategories';
 import type { RoadtripVia } from '@trek/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { pluginsApi, type PluginMapLayer, type PluginMapMarker } from '../../api/client';
-import { useGeolocation } from '../../hooks/useGeolocation';
+import type { GeoPosition } from '../../hooks/useGeolocation';
+import MapLocateButton from './MapLocateButton';
 import { useTranslation } from '../../i18n';
 import { useSettingsStore } from '../../store/settingsStore';
 import type { RouteVia } from '../../types';
@@ -64,6 +66,15 @@ export function MapViewAMap(props: any) {
   const suppressMapClickRef = useRef(false);
   const callbacksRef = useRef({ onMapClick: props.onMapClick, onMapContextMenu: props.onMapContextMenu });
   callbacksRef.current = { onMapClick: props.onMapClick, onMapContextMenu: props.onMapContextMenu };
+  // POI-explore pill: emit the visible bbox on every pan/zoom (and once when
+  // the map is ready) so the explorer can fetch for the current viewport.
+  // Stored in a ref because the map lifecycle effect is mount-only; reading
+  // the latest callback through the ref avoids a stale closure without
+  // re-binding listeners on every render.
+  const viewportCallbacksRef = useRef<
+    ((bbox: { south: number; west: number; north: number; east: number }) => void) | undefined
+  >(props.onViewportChange);
+  viewportCallbacksRef.current = props.onViewportChange;
   const suppressMapClick = () => {
     suppressMapClickRef.current = true;
     queueMicrotask(() => {
@@ -84,7 +95,7 @@ export function MapViewAMap(props: any) {
   const places = props.places || [];
   const dayPlaces = props.dayPlaces || [];
   const selected = props.selectedPlaceId;
-  const { position, mode } = useGeolocation();
+  const [position, setPosition] = useState<GeoPosition | null>(null);
   const settingsKey = useSettingsStore((s) => s.settings.amap_js_api_key);
   const points = useMemo(() => places.filter((p: any) => valid(p.lat, p.lng)), [places]);
 
@@ -93,6 +104,7 @@ export function MapViewAMap(props: any) {
     let onMapClick: ((event: any) => void) | null = null;
     let onContextMenu: ((event: any) => void) | null = null;
     let onZoomEnd: (() => void) | null = null;
+    let onViewport: (() => void) | null = null;
     loadAmap(settingsKey)
       .then((AMap) => {
         if (cancelled || !hostRef.current) return;
@@ -129,9 +141,45 @@ export function MapViewAMap(props: any) {
           });
         };
         onZoomEnd = () => setMapZoom(Number(map.getZoom?.() ?? props.zoom ?? 5));
+        // AMap reports GCJ-02; the rest of the app expects WGS-84 (matches MapView
+        // and MapViewGL). The bbox is forwarded as plain {south, west, north, east}
+        // so the POI explorer can fetch Overpass/AMap POIs without knowing which
+        // engine is mounted. Each corner is converted individually - gcj02ToWgs84
+        // is no-op outside China, so a pan that crosses the border still comes
+        // out as a consistent WGS-84 rectangle.
+        onViewport = () => {
+          const cb = viewportCallbacksRef.current;
+          if (!cb || typeof map.getBounds !== 'function') return;
+          const b = map.getBounds();
+          if (!b) return;
+          const sw = b.getSouthWest?.();
+          const ne = b.getNorthEast?.();
+          if (!sw || !ne) return;
+          const swLng = Number(sw.getLng?.());
+          const swLat = Number(sw.getLat?.());
+          const neLng = Number(ne.getLng?.());
+          const neLat = Number(ne.getLat?.());
+          if (![swLng, swLat, neLng, neLat].every(Number.isFinite)) return;
+          // The bbox is rebuilt from min/max of each axis so a swapped SW/NE
+          // (negative hemisphere, post-conversion drift) cannot break the
+          // {south <= north, west <= east} contract.
+          const wSw = gcj02ToWgs84(swLng, swLat);
+          const wNe = gcj02ToWgs84(neLng, neLat);
+          cb({
+            south: Math.min(wSw.lat, wNe.lat),
+            west: Math.min(wSw.lng, wNe.lng),
+            north: Math.max(wSw.lat, wNe.lat),
+            east: Math.max(wSw.lng, wNe.lng),
+          });
+        };
         map.on('click', onMapClick);
         map.on('contextmenu', onContextMenu);
         map.on('zoomend', onZoomEnd);
+        map.on('complete', onViewport);
+        map.on('moveend', onViewport);
+        map.on('zoomend', onViewport);
+        // Initial emission so the explorer has a bbox even before the user moves.
+        onViewport();
         setMapZoom(Number(map.getZoom?.() ?? props.zoom ?? 5));
         setReady(true);
       })
@@ -148,6 +196,11 @@ export function MapViewAMap(props: any) {
         if (onMapClick) map.off('click', onMapClick);
         if (onContextMenu) map.off('contextmenu', onContextMenu);
         if (onZoomEnd) map.off('zoomend', onZoomEnd);
+        if (onViewport) {
+          map.off('complete', onViewport);
+          map.off('moveend', onViewport);
+          map.off('zoomend', onViewport);
+        }
       }
       trailRef.current?.clear();
       trailRef.current = null;
@@ -347,11 +400,11 @@ export function MapViewAMap(props: any) {
         {
           position: [c.lng, c.lat],
           title: poi.name,
-          content: `<div style="width:18px;height:18px;border-radius:50%;background:#f59e0b;border:2px solid white"></div>`,
+          content: `<div style="width:18px;height:18px;border-radius:50%;background:${html(POI_CATEGORY_BY_KEY[poi.category]?.color || '#f59e0b')};border:2px solid white"></div>`,
           zIndex: 500,
         },
         () => props.onPoiClick?.(poi),
-        poi.name
+        html(poi.name || '')
       );
     }
     for (const via of (props.routeVias || []) as RouteVia[]) {
@@ -608,8 +661,8 @@ export function MapViewAMap(props: any) {
     const AMap = amapRef.current;
     if (!map || !AMap || !ready) return;
     if (!locationOverlayRef.current) locationOverlayRef.current = attachLocationAMapOverlay(map, AMap);
-    locationOverlayRef.current.update(position, { follow: mode === 'follow' });
-  }, [position, mode, ready]);
+    locationOverlayRef.current.update(position);
+  }, [position, ready]);
 
   /**
    * Refit only when a fit is actually asked for.
@@ -644,10 +697,34 @@ export function MapViewAMap(props: any) {
     overlays.forEach((o) => o.setMap(null));
   }, [props.fitKey, dayPlaces, places, ready]);
 
+  // AMap fit padding order is top, bottom, left, right. Leave the selected
+  // point above the inspector and between the sidebars, at street-level zoom.
+  const focusPoint = (lat: number, lng: number) => {
+    const map = mapRef.current, AMap = amapRef.current;
+    if (!map || !AMap || !ready) return;
+    const c = wgs84ToGcj02(lng, lat);
+    const marker = new AMap.Marker({position:[c.lng,c.lat]});
+    marker.setMap(map);
+    map.setFitView([marker], false, [60, props.hasInspector ? 340 : 60, (props.leftWidth || 0) + 40, (props.rightWidth || 0) + 40], 15);
+    marker.setMap(null);
+  };
+  const lastFocusKey = useRef(0);
+  useEffect(() => {
+    if (!ready || !props.focusPlaceKey || lastFocusKey.current === props.focusPlaceKey) return;
+    const target = places.find((p: any) => p.id === selected) || dayPlaces.find((p: any) => p.id === selected);
+    if (target?.lat == null || target?.lng == null || !valid(target.lat, target.lng) || Math.abs(Number(target.lat)) > 90 || Math.abs(Number(target.lng)) > 180) return;
+    lastFocusKey.current = props.focusPlaceKey;
+    focusPoint(Number(target.lat), Number(target.lng));
+  }, [props.focusPlaceKey, selected, places, dayPlaces, ready]);
+
   if (failed) return <MapView {...props} />;
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 240 }}>
       <div ref={hostRef} style={{ width: '100%', height: '100%' }} aria-label="高德地图" />
+      <MapLocateButton disabled={!ready} right={(props.rightWidth || 0) + 12} onPosition={fix => {
+        setPosition(fix);
+        focusPoint(fix.lat, fix.lng);
+      }} />
       {/* The delete zone, top-left, while a handle is selected. Out of the way of the
           map's own controls (which sit top-right and bottom) and reachable by a thumb
           holding the handle, which is the whole point of a drop target. */}

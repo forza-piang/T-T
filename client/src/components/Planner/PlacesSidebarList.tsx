@@ -31,6 +31,7 @@ export function PlacesList({ header, ...S }: SidebarState & {
     isMobile,
     isTouch,
     onPlaceClick,
+    onPlaceFocus,
     openContextMenu,
     onAssignToDay,
     toggleSelected,
@@ -95,6 +96,7 @@ export function PlacesList({ header, ...S }: SidebarState & {
                 isTouch={isTouch}
                 t={t}
                 onPlaceClick={onPlaceClick}
+                onPlaceFocus={onPlaceFocus}
                 onContextMenu={openContextMenu}
                 onAssignToDay={onAssignToDay}
                 toggleSelected={toggleSelected}

@@ -3,7 +3,7 @@ import { DatabaseService } from '../database/database.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { manualSchoolRegionId } from '@trek/shared';
+import { manualSchoolRegionId, getChinaCalendar, chinaCalendarDay } from '@trek/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,6 +45,7 @@ export interface VacayPlanMember {
 }
 
 export interface Holiday {
+  isWorkday?: boolean;
   date: string;
   localName?: string;
   name?: string;
@@ -525,7 +526,9 @@ export class VacayService {
         try {
           const cacheKey = `${year}-${country}`;
           const cached = this.holidayCache.get(cacheKey);
-          let holidays = cached && Date.now() - cached.time < CACHE_TTL ? (cached.data as Holiday[]) : undefined;
+          let holidays = country.toUpperCase() === 'CN' ? getChinaCalendar(year) :
+            cached && Date.now() - cached.time < CACHE_TTL ? (cached.data as Holiday[]) : undefined;
+          if (country.toUpperCase() === 'CN' && !holidays) continue;
           if (!holidays) {
             if (!COUNTRY_RE.test(country)) continue;
             const resp = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`, {
@@ -543,6 +546,7 @@ export class VacayService {
           const hasRegions = holidays.some((h: Holiday) => h.counties && h.counties.length > 0);
           if (hasRegions && !region) continue;
           for (const h of holidays) {
+            if (h.isWorkday) continue;
             if (h.global || !h.counties || (region && h.counties.includes(region))) {
               this.db.run('DELETE FROM vacay_entries WHERE plan_id = ? AND date = ?', planId, h.date);
               this.db.run('DELETE FROM vacay_company_holidays WHERE plan_id = ? AND date = ?', planId, h.date);
@@ -1567,7 +1571,12 @@ export class VacayService {
     const frac = normalizeFraction(fraction);
     const knd = normalizeKind(kind);
     const plan = this.db.get<VacayPlan>('SELECT * FROM vacay_plans WHERE id = ?', planId);
-    const weekendBlocked = plan ? isBlockedWeekend(plan, date) : false;
+    const chinaCalendarEnabled = !!plan?.holidays_enabled && !!this.db.get(
+      "SELECT id FROM vacay_holiday_calendars WHERE plan_id = ? AND (type = 'public_holiday' OR type IS NULL) AND (region = 'CN' OR region LIKE 'CN-%')", planId,
+    );
+    const chinaDay = chinaCalendarEnabled ? chinaCalendarDay(date) : undefined;
+    const weekendBlocked = plan ? isBlockedWeekend(plan, date) && !chinaDay?.isWorkday : false;
+    const publicHolidayBlocked = !!chinaDay && !chinaDay.isWorkday;
     const existing = this.db.get<{ id: number; fraction: number; kind: string | null }>(
       'SELECT id, fraction, kind FROM vacay_entries WHERE user_id = ? AND date = ? AND plan_id = ?',
       userId,
@@ -1584,11 +1593,13 @@ export class VacayService {
       }
       // Removing a stray entry on a blocked day stays possible; keeping one
       // there (converted in place) does not.
+      if (publicHolidayBlocked) return { error: 'public_holiday_blocked' };
       if (weekendBlocked) return { error: 'weekend_blocked' };
       this.db.run('UPDATE vacay_entries SET fraction = ?, kind = ? WHERE id = ?', frac, knd, existing.id);
       this.notifyPlanUsers(planId, socketId);
       return { action: 'updated', fraction: frac, kind: knd };
     }
+    if (publicHolidayBlocked) return { error: 'public_holiday_blocked' };
     if (weekendBlocked) return { error: 'weekend_blocked' };
     this.db.run(
       'INSERT INTO vacay_entries (plan_id, user_id, date, note, fraction, kind) VALUES (?, ?, ?, ?, ?, ?)',
@@ -1783,14 +1794,17 @@ export class VacayService {
       });
       if (!resp.ok) {
         discardBody(resp);
-        return { error: 'Failed to fetch countries' };
+        return { data: [{ countryCode: 'CN', name: 'China' }] };
       }
-      const data = await readCappedJson(resp, MAX_HOLIDAY_BYTES);
-      if (data === undefined) return { error: 'Failed to fetch countries' };
+      const upstream = await readCappedJson<unknown>(resp, MAX_HOLIDAY_BYTES);
+      const data = Array.isArray(upstream) ? upstream.filter((c): c is { countryCode: string; name: string } =>
+        !!c && typeof c === 'object' && 'countryCode' in c && typeof c.countryCode === 'string' &&
+        'name' in c && typeof c.name === 'string' && c.countryCode !== 'CN') : [];
+      data.push({ countryCode: 'CN', name: 'China' });
       this.holidayCache.set(cacheKey, { data, time: Date.now() });
       return { data };
     } catch {
-      return { error: 'Failed to fetch countries' };
+      return { data: [{ countryCode: 'CN', name: 'China' }] };
     }
   }
 
@@ -1798,6 +1812,10 @@ export class VacayService {
     // Both segments land in the URL path, so they are checked before the cache
     // lookup rather than after it.
     if (!YEAR_RE.test(year) || !COUNTRY_RE.test(country)) return { error: 'Failed to fetch holidays' };
+    if (country.toUpperCase() === 'CN') {
+      const data = getChinaCalendar(Number(year));
+      return data ? { data } : { error: 'China holiday schedule is not available for this year' };
+    }
     const cacheKey = `${year}-${country}`;
     const cached = this.holidayCache.get(cacheKey);
     if (cached && Date.now() - cached.time < CACHE_TTL) return { data: cached.data };

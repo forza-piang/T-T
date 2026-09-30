@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "Envoie cette capture à MiniMax et utilise le quota de votre forfait. Vérifiez le résultat avant de sauvegarder. PNG/JPEG, 12 Mo maximum.",
+  "costs.scanReceipt": "Lire une capture de paiement",
+  "costs.scanReceiptHint": "Reconnaissance locale. Vérifiez les champs avant de les appliquer et de sauvegarder. PNG/JPEG, 12 Mo maximum.",
+  "costs.scanReceiptFailed": "Paiement non reconnu. Essayez une image plus nette ou saisissez les données.",
+  "costs.scanReceiptApply": "Appliquer les champs reconnus",
   'costs.confirm.deleteTitle': 'Supprimer la dépense ?',
   'costs.confirm.deleteBody': '« {name} » sera définitivement supprimé.',
   'budget.title': 'Budget',

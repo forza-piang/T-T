@@ -1,4 +1,5 @@
-import { render, waitFor } from '@testing-library/react';
+import { loadAmap } from './engines/amap';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock stores to avoid localStorage access during module initialization.
@@ -40,6 +41,15 @@ import { MapViewAMap } from './MapViewAMap';
 const mockAMap = () => {
   const overlays: any[] = [];
   const listeners = new Map<string, ((e: any) => void)[]>();
+  // AMap reports bounds in GCJ-02; the explorer expects WGS-84. Tests
+  // mutate `bounds` directly to simulate a pan/zoom between assertions,
+  // and the conversion is the same identity the engine mock applies
+  // (lng - 0.006, lat - 0.006), so the expected WGS-84 numbers are
+  // predictable.
+  const bounds = {
+    sw: { lng: 116.41, lat: 39.91 },
+    ne: { lng: 116.43, lat: 39.93 },
+  };
 
   const map = {
     destroy: vi.fn(),
@@ -47,6 +57,10 @@ const mockAMap = () => {
     setFitView: vi.fn(),
     getZoom: vi.fn(() => 10),
     setCenter: vi.fn(),
+    getBounds: vi.fn(() => ({
+      getSouthWest: () => ({ getLng: () => bounds.sw.lng, getLat: () => bounds.sw.lat }),
+      getNorthEast: () => ({ getLng: () => bounds.ne.lng, getLat: () => bounds.ne.lat }),
+    })),
     on: vi.fn((event: string, handler: (e: any) => void) => {
       const handlers = listeners.get(event) || [];
       handlers.push(handler);
@@ -122,7 +136,7 @@ const mockAMap = () => {
     LngLat: vi.fn(MockLngLat),
   };
 
-  return { map, AMap, overlays, listeners };
+  return { map, AMap, overlays, listeners, bounds };
 };
 
 // Store the current mock instance globally so tests can access it
@@ -143,8 +157,9 @@ vi.mock('./engines/amap', () => {
   };
 });
 
-vi.mock('../../hooks/useGeolocation', () => ({
-  useGeolocation: vi.fn(() => ({ position: null, mode: null })),
+vi.mock('../../hooks/useGeolocation', async importOriginal => ({
+  ...await importOriginal<typeof import('../../hooks/useGeolocation')>(),
+  getCurrentPositionOnce: vi.fn(),
 }));
 
 vi.mock('../../api/client', () => ({
@@ -643,4 +658,267 @@ describe('MapViewAMap camera framing', () => {
 
     expect(map.setFitView.mock.calls.length).toBeGreaterThan(before);
   });
+});
+
+/**
+ * The POI-explore pill needs the visible bbox on every pan/zoom (and once when
+ * the map is ready) so it can fetch Overpass/AMap POIs for the current viewport.
+ * MapViewAMap is the engine that previously ignored `onViewportChange`, so the
+ * bbox stayed null and the first toggle fetched nothing. These tests pin the
+ * initial/moveend/zoomend emission, the GCJ-02 -> WGS-84 conversion, the
+ * cleanup, and the no-stale-callback path that the mount-only lifecycle needs.
+ */
+describe('MapViewAMap viewport emission', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentMockInstance = null;
+  });
+
+  it('FE-COMP-MAPVIEWAMAP-042: emits the initial bbox as WGS-84 once the map is ready', async () => {
+    const onViewportChange = vi.fn();
+    render(
+      <MapViewAMap
+        onViewportChange={onViewportChange}
+        zoom={10}
+        center={[39.92, 116.42]}
+      />
+    );
+
+    await waitFor(() => expect(loadAmap).toHaveBeenCalled());
+    await waitFor(() => expect(currentMockInstance).toBeTruthy());
+
+    // Bounds reported by the mock are GCJ-02 (lng + 0.006, lat + 0.006);
+    // the engine mock reverses the +0.006 so the WGS-84 corners are the
+    // numbers below.
+    await waitFor(() =>
+      expect(onViewportChange).toHaveBeenCalledWith({
+        south: expect.closeTo(39.904, 6),
+        west: expect.closeTo(116.404, 6),
+        north: expect.closeTo(39.924, 6),
+        east: expect.closeTo(116.424, 6),
+      })
+    );
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('FE-COMP-MAPVIEWAMAP-043: a moveend re-emits the bbox in WGS-84', async () => {
+    const onViewportChange = vi.fn();
+    render(
+      <MapViewAMap
+        onViewportChange={onViewportChange}
+        zoom={10}
+        center={[39.92, 116.42]}
+      />
+    );
+
+    await waitFor(() => expect(loadAmap).toHaveBeenCalled());
+    await waitFor(() => expect(currentMockInstance).toBeTruthy());
+    const { map, bounds } = currentMockInstance!;
+
+    onViewportChange.mockClear();
+    // Pan the map: a new SW/NE in GCJ-02 should come out as the matching WGS-84.
+    bounds.sw = { lng: 116.50, lat: 39.95 };
+    bounds.ne = { lng: 116.52, lat: 39.97 };
+    map.trigger('moveend', {});
+
+    expect(onViewportChange).toHaveBeenLastCalledWith({
+      south: expect.closeTo(39.944, 6),
+      west: expect.closeTo(116.494, 6),
+      north: expect.closeTo(39.964, 6),
+      east: expect.closeTo(116.514, 6),
+    });
+  });
+
+  it('FE-COMP-MAPVIEWAMAP-044: a zoomend re-emits the bbox in WGS-84', async () => {
+    const onViewportChange = vi.fn();
+    render(
+      <MapViewAMap
+        onViewportChange={onViewportChange}
+        zoom={10}
+        center={[39.92, 116.42]}
+      />
+    );
+
+    await waitFor(() => expect(loadAmap).toHaveBeenCalled());
+    await waitFor(() => expect(currentMockInstance).toBeTruthy());
+    const { map, bounds } = currentMockInstance!;
+
+    onViewportChange.mockClear();
+    bounds.sw = { lng: 116.60, lat: 40.00 };
+    bounds.ne = { lng: 116.62, lat: 40.02 };
+    map.trigger('zoomend', {});
+
+    expect(onViewportChange).toHaveBeenLastCalledWith({
+      south: expect.closeTo(39.994, 6),
+      west: expect.closeTo(116.594, 6),
+      north: expect.closeTo(40.014, 6),
+      east: expect.closeTo(116.614, 6),
+    });
+  });
+
+  it('FE-COMP-MAPVIEWAMAP-045: a swapped SW/NE still produces south <= north, west <= east', async () => {
+    const onViewportChange = vi.fn();
+    render(
+      <MapViewAMap
+        onViewportChange={onViewportChange}
+        zoom={10}
+        center={[39.92, 116.42]}
+      />
+    );
+
+    await waitFor(() => expect(loadAmap).toHaveBeenCalled());
+    await waitFor(() => expect(currentMockInstance).toBeTruthy());
+    const { map, bounds } = currentMockInstance!;
+
+    onViewportChange.mockClear();
+    // A crossed-corner GCJ box, which gcj02ToWgs84 also crosses, must still
+    // come out with south <= north and west <= east.
+    bounds.sw = { lng: 116.60, lat: 40.00 };
+    bounds.ne = { lng: 116.40, lat: 39.80 };
+    map.trigger('moveend', {});
+
+    const last = onViewportChange.mock.calls[onViewportChange.mock.calls.length - 1]?.[0];
+    expect(last.south).toBeLessThanOrEqual(last.north);
+    expect(last.west).toBeLessThanOrEqual(last.east);
+    // Specifically: 39.794/116.394 .. 39.994/116.594.
+    expect(last).toEqual({
+      south: expect.closeTo(39.794, 6),
+      west: expect.closeTo(116.394, 6),
+      north: expect.closeTo(39.994, 6),
+      east: expect.closeTo(116.594, 6),
+    });
+  });
+
+  it('FE-COMP-MAPVIEWAMAP-046: a fresh onViewportChange prop is honoured without rebinding listeners', async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { rerender } = render(
+      <MapViewAMap
+        onViewportChange={first}
+        zoom={10}
+        center={[39.92, 116.42]}
+      />
+    );
+
+    await waitFor(() => expect(loadAmap).toHaveBeenCalled());
+    await waitFor(() => expect(currentMockInstance).toBeTruthy());
+    const { map } = currentMockInstance!;
+
+    // Count the moveend registrations made by the viewport listener.
+    const moveendCallsBefore = map.on.mock.calls.filter((c: any[]) => c[0] === 'moveend').length;
+
+    rerender(
+      <MapViewAMap
+        onViewportChange={second}
+        zoom={10}
+        center={[39.92, 116.42]}
+      />
+    );
+
+    // No new listener: the lifecycle is mount-only and reads the latest
+    // callback through a ref. A duplicate binding would mean every move
+    // fires both first and second, which would break the explorer the
+    // moment the parent forgets to memoize.
+    const moveendCallsAfter = map.on.mock.calls.filter((c: any[]) => c[0] === 'moveend').length;
+    expect(moveendCallsAfter).toBe(moveendCallsBefore);
+
+    first.mockClear();
+    second.mockClear();
+    map.trigger('moveend', {});
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('FE-COMP-MAPVIEWAMAP-047: unmount detaches moveend and the viewport zoomend', async () => {
+    const onViewportChange = vi.fn();
+    const { unmount } = render(
+      <MapViewAMap
+        onViewportChange={onViewportChange}
+        zoom={10}
+        center={[39.92, 116.42]}
+      />
+    );
+
+    await waitFor(() => expect(loadAmap).toHaveBeenCalled());
+    await waitFor(() => expect(currentMockInstance).toBeTruthy());
+    const { map } = currentMockInstance!;
+
+    unmount();
+
+    // moveend: one binding, one detachment.
+    const moveendOn = map.on.mock.calls.filter((c: any[]) => c[0] === 'moveend').length;
+    const moveendOff = map.off.mock.calls.filter((c: any[]) => c[0] === 'moveend').length;
+    expect(moveendOn).toBe(1);
+    expect(moveendOff).toBe(1);
+
+    // zoomend has the existing zoom-state handler plus the viewport handler
+    // (two on calls, two off calls).
+    const zoomendOn = map.on.mock.calls.filter((c: any[]) => c[0] === 'zoomend').length;
+    const zoomendOff = map.off.mock.calls.filter((c: any[]) => c[0] === 'zoomend').length;
+    expect(zoomendOn).toBe(2);
+    expect(zoomendOff).toBe(2);
+
+    // Firing after unmount must not reach the parent's callback.
+    onViewportChange.mockClear();
+    map.trigger('moveend', {});
+    map.trigger('zoomend', {});
+    expect(onViewportChange).not.toHaveBeenCalled();
+  });
+
+  it('FE-COMP-MAPVIEWAMAP-048: without onViewportChange the listener still no-ops cleanly', async () => {
+    render(<MapViewAMap zoom={10} center={[39.92, 116.42]} />);
+
+    await waitFor(() => expect(loadAmap).toHaveBeenCalled());
+    await waitFor(() => expect(currentMockInstance).toBeTruthy());
+    const { map } = currentMockInstance!;
+
+    // The explorer may arrive on the next render; the listener should not
+    // throw when no callback is registered yet.
+    expect(() => map.trigger('moveend', {})).not.toThrow();
+    expect(() => map.trigger('zoomend', {})).not.toThrow();
+  });
+});
+
+describe('AMap deliberate camera requests', () => {
+ beforeEach(() => { vi.clearAllMocks(); currentMockInstance = null; });
+ it('focuses the requested place with GCJ-02 coordinates and repeats after panning', async () => {
+   const place = {id: 91, name:'临高县', lat:19.914146, lng:109.686346};
+   const props = {places:[place],selectedPlaceId:91,fitKey:1,leftWidth:300,rightWidth:280,hasInspector:true};
+   const {rerender} = render(<MapViewAMap {...props} focusPlaceKey={0} />);
+   await waitFor(()=>expect(currentMockInstance?.map.setFitView).toHaveBeenCalled());
+   const {map} = currentMockInstance!; map.setFitView.mockClear();
+   rerender(<MapViewAMap {...props} focusPlaceKey={1} />);
+   await waitFor(()=>expect(map.setFitView).toHaveBeenCalledTimes(1));
+   const call = map.setFitView.mock.calls[0];
+   expect(call.slice(1)).toEqual([false,[60,340,340,320],15]);
+   expect(call[0][0].options.position).toEqual([place.lng+0.006,place.lat+0.006]);
+   rerender(<MapViewAMap {...props} places={[{...place}]} focusPlaceKey={1} />);
+   expect(map.setFitView).toHaveBeenCalledTimes(1);
+   rerender(<MapViewAMap {...props} focusPlaceKey={2} />);
+   await waitFor(()=>expect(map.setFitView).toHaveBeenCalledTimes(2));
+ });
+ it('does not focus a place with missing coordinates', async () => {
+   const {rerender} = render(<MapViewAMap places={[]} focusPlaceKey={0} />);
+   await waitFor(()=>expect(currentMockInstance?.map.setZoomAndCenter).toHaveBeenCalled());
+   const {map} = currentMockInstance!; map.setFitView.mockClear();
+   rerender(<MapViewAMap places={[{id:1,lat:null,lng:null}]} selectedPlaceId={1} focusPlaceKey={1} />);
+   expect(map.setFitView).not.toHaveBeenCalled();
+ });
+ it('shows and frames a browser fix only after pressing locate', async () => {
+   const {getCurrentPositionOnce} = await import('../../hooks/useGeolocation');
+   const {attachLocationAMapOverlay} = await import('./amapOverlays');
+   const fix = {lat:30.5,lng:104.1,accuracy:25,heading:null,speed:null,timestamp:1};
+   vi.mocked(getCurrentPositionOnce).mockResolvedValue(fix);
+   const {getByRole} = render(<MapViewAMap places={[]} />);
+   const button = getByRole('button',{name:'journey.editor.useCurrentLocation'});
+   await waitFor(()=>expect(button).not.toBeDisabled());
+   expect(getCurrentPositionOnce).not.toHaveBeenCalled();
+   fireEvent.click(button);
+   await waitFor(()=>expect(currentMockInstance!.map.setFitView).toHaveBeenCalled());
+   const last = currentMockInstance!.map.setFitView.mock.calls.slice(-1)[0]!;
+   expect(last[0][0].options.position).toEqual([fix.lng+0.006,fix.lat+0.006]);
+   const handle = vi.mocked(attachLocationAMapOverlay).mock.results.slice(-1)[0]!.value;
+   expect(handle.update).toHaveBeenLastCalledWith(fix);
+ });
 });

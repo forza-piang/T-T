@@ -1,7 +1,6 @@
 import type { Collection, CollectionLink } from '@trek/shared';
-import { Image, Loader2, Search, Trash2 } from 'lucide-react';
+import { Image, Loader2, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { tripsApi } from '../../../api/client';
 import { useToast } from '../../../components/shared/Toast';
 import { normalizeLinkUrl } from '../../../pages/collections/collectionsModel';
 import { useCollectionStore } from '../../../store/collectionStore';
@@ -12,19 +11,9 @@ import { listCoverGradient, SWATCH_COLORS } from './collectionsMobileModel';
 import MCollLinksEditor from './MCollLinksEditor';
 import { CancelPill, PrimaryPill, SheetFooter, SheetHeader, TEXTAREA_CLS } from './MCollSheetKit';
 
-interface CoverSearchPhoto {
-  id: string;
-  url: string;
-  thumb: string;
-  description?: string | null;
-  photographer?: string | null;
-}
-
-// Scrims over the cover photo / Unsplash thumbs — fixed dark overlays in both themes.
+// Scrims over the cover photo — fixed dark overlays in both themes.
 const COVER_OVERLAY =
   'absolute inset-0 flex items-center justify-center gap-[6px] bg-[rgba(0,0,0,.28)] text-[0.78125rem] font-bold text-white'; // theme-lint-disable
-const PHOTO_CREDIT =
-  'absolute inset-x-0 bottom-0 truncate bg-[rgba(0,0,0,.55)] px-[6px] py-1 text-left text-[0.625rem] text-white'; // theme-lint-disable
 
 interface MCollEditSheetProps {
   /** null = closed, 'new' = create, a Collection = edit that list. */
@@ -37,7 +26,7 @@ interface MCollEditSheetProps {
 }
 
 /**
- * Create / edit a list: cover (upload or Unsplash search), name, colour,
+ * Create / edit a list: cover upload, name, colour,
  * description and links. Deleting goes through the shared confirm flow.
  */
 export default function MCollEditSheet({ target, onClose, onCreated, onRequestDelete, t }: MCollEditSheetProps) {
@@ -58,11 +47,6 @@ export default function MCollEditSheet({ target, onClose, onCreated, onRequestDe
   const [links, setLinks] = useState<CollectionLink[]>([]);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [pendingUnsplashUrl, setPendingUnsplashUrl] = useState<string | null>(null);
-  const [coverQuery, setCoverQuery] = useState('');
-  const [coverResults, setCoverResults] = useState<CoverSearchPhoto[]>([]);
-  const [searchingCover, setSearchingCover] = useState(false);
-  const coverSeq = useRef(0);
   const [saving, setSaving] = useState(false);
   // A create that failed at the cover step keeps its id so a retry updates it.
   const [createdId, setCreatedId] = useState<number | null>(null);
@@ -86,9 +70,7 @@ export default function MCollEditSheet({ target, onClose, onCreated, onRequestDe
     setCoverFile(null);
     dropObjectUrl();
     setCoverPreview(edit?.cover_image ?? null);
-    setPendingUnsplashUrl(null);
-    setCoverQuery('');
-    setCoverResults([]);
+
     setCreatedId(null);
   }, [target]);
 
@@ -108,31 +90,7 @@ export default function MCollEditSheet({ target, onClose, onCreated, onRequestDe
     objectUrl.current = url;
     setCoverFile(file);
     setCoverPreview(url);
-    setPendingUnsplashUrl(null);
-  };
 
-  const searchCover = async () => {
-    const query = coverQuery.trim() || name.trim();
-    if (!query) return;
-    const seq = ++coverSeq.current;
-    setSearchingCover(true);
-    try {
-      const data = await tripsApi.searchCoverImages(query);
-      if (seq !== coverSeq.current) return;
-      setCoverResults(data.photos || []);
-    } catch {
-      if (seq === coverSeq.current) setCoverResults([]);
-    } finally {
-      if (seq === coverSeq.current) setSearchingCover(false);
-    }
-  };
-
-  const pickUnsplash = (photo: CoverSearchPhoto) => {
-    if (!photo.url) return;
-    dropObjectUrl();
-    setCoverFile(null);
-    setPendingUnsplashUrl(photo.url);
-    setCoverPreview(photo.url);
   };
 
   const save = async () => {
@@ -146,7 +104,6 @@ export default function MCollEditSheet({ target, onClose, onCreated, onRequestDe
       color,
       description: description.trim() || null,
       links: cleanLinks,
-      ...(pendingUnsplashUrl ? { cover_image: pendingUnsplashUrl } : {}),
     };
     setSaving(true);
     try {
@@ -204,52 +161,6 @@ export default function MCollEditSheet({ target, onClose, onCreated, onRequestDe
           className="hidden"
           onChange={(e) => pickCover(e.target.files?.[0])}
         />
-        <div className="mt-2 flex gap-2">
-          <input
-            value={coverQuery}
-            onChange={(e) => setCoverQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                searchCover();
-              }
-            }}
-            placeholder={t('dashboard.unsplashSearchPlaceholder')}
-            className="min-w-0 flex-1 rounded-[12px] border border-[color:var(--m-rowbr)] bg-[color:var(--m-sheet)] px-3 py-[10px] font-geist text-[0.71875rem] text-m-ink outline-none placeholder:text-m-faint"
-          />
-          <button
-            type="button"
-            onClick={searchCover}
-            disabled={searchingCover || (!coverQuery.trim() && !name.trim())}
-            className="flex flex-none items-center gap-[5px] rounded-[12px] border border-[color:var(--m-rowbr)] bg-[color:var(--m-sheet)] px-3 py-[10px] text-[0.71875rem] font-semibold text-m-ink disabled:opacity-40"
-          >
-            {searchingCover ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} strokeWidth={2} />}{' '}
-            Unsplash
-          </button>
-        </div>
-        {coverResults.length > 0 && (
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {coverResults.map((photo) => (
-              <button
-                key={photo.id}
-                type="button"
-                onClick={() => pickUnsplash(photo)}
-                aria-label={photo.photographer || 'Unsplash'}
-                className="relative h-20 overflow-hidden rounded-[10px] border border-[color:var(--m-rowbr)]"
-                style={coverPreview === photo.url ? { boxShadow: 'inset 0 0 0 2px var(--m-act)' } : undefined}
-              >
-                <img
-                  src={photo.thumb}
-                  alt={photo.description || ''}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-                {photo.photographer && <span className={PHOTO_CREDIT}>{photo.photographer}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className={`${label} mt-[14px]`}>{t('collections.listName')}</div>
         <input
           value={name}

@@ -217,3 +217,12 @@ describe('vacayDayModel', () => {
     });
   });
 });
+
+
+it('keeps make-up workdays active instead of rendering them as holidays or weekends', () => {
+  const visual = dayVisual('2026-10-10', 6, ctx({ holidays: {
+    '2026-10-10': { name: '调休补班', localName: '调休补班', label: null, color: '#fecaca', isWorkday: true }
+  } }));
+  expect(visual.background).toBe('transparent');
+  expect(visual.workday).toBe(true);
+});

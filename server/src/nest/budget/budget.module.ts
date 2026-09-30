@@ -11,6 +11,9 @@ import { BudgetService } from './budget.service';
 import { CostsRpc } from './costs.rpc';
 import { ExchangeRatesRpc } from './exchange-rates.rpc';
 import { ExchangeRatesService } from './exchange-rates.service';
+import { ReceiptOcrController } from './receipt-ocr.controller';
+import { ReceiptOcrService } from './receipt-ocr.service';
+import { MiniMaxReceiptService } from './minimax-receipt.service';
 import { Module } from '@nestjs/common';
 
 /** Budget domain (S4 — Phase 2 trip sub-domain). Registered in AppModule.
@@ -19,7 +22,9 @@ import { Module } from '@nestjs/common';
  *  RuntimeEnvService + the users table, not AuthService) — that absence is
  *  what lets AuthModule import BudgetModule for UserCleanupService.
  *  AppConfigModule is @Global in the app graph; the explicit import keeps the
- *  partial e2e TestingModules resolving RuntimeEnvService. */
+ *  partial e2e TestingModules resolving RuntimeEnvService.
+ *  ReceiptOcrService is wired here because the controller is a sibling of
+ *  BudgetController and shares its trip-scoped guards. */
 @Module({
   imports: [
     McpSharedModule,
@@ -30,8 +35,8 @@ import { Module } from '@nestjs/common';
     AddonsModule,
     TripMembershipModule,
   ],
-  controllers: [BudgetController],
-  providers: [BudgetService, ExchangeRatesService, BudgetMcp, ExchangeRatesRpc, CostsRpc],
+  controllers: [BudgetController, ReceiptOcrController],
+  providers: [BudgetService, ExchangeRatesService, BudgetMcp, ExchangeRatesRpc, CostsRpc, ReceiptOcrService, MiniMaxReceiptService],
   // For in-container consumers (CostsRpc, TripsService,
   // ReservationsService, BookingImportService).
   exports: [BudgetService, ExchangeRatesService],

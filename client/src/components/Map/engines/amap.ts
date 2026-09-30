@@ -34,7 +34,7 @@ export type AMapMap = {
   setZoomAndCenter: (zoom: number, center: [number, number]) => void;
   setCenter?: (center: [number, number]) => void;
   setZoom?: (zoom: number) => void;
-  setFitView: (overlays?: AMapOverlay[], immediately?: boolean, avoid?: number[]) => void;
+  setFitView: (overlays?: AMapOverlay[], immediately?: boolean, avoid?: number[], maxZoom?: number) => void;
   getCenter?: () => AMapLngLat;
   getZoom?: () => number;
   getBounds?: () => { getSouthWest: () => AMapLngLat; getNorthEast: () => AMapLngLat };
@@ -43,18 +43,25 @@ export type AMapMap = {
   off?: (event: string, handler: (event: any) => void) => void;
 };
 
-type AMapWindow = Window & { AMap?: AMapModule };
+type AMapWindow = Window & {
+  AMap?: AMapModule;
+  __TREK_AMAP_JS_KEY__?: string;
+  _AMapSecurityConfig?: { serviceHost: string };
+};
 
 let loading: { key: string; promise: Promise<AMapModule> } | null = null;
 
 export function loadAmap(apiKey?: string): Promise<AMapModule> {
-  const key = apiKey?.trim() || (window as any).__TREK_AMAP_JS_KEY__ || '';
+  const key = apiKey?.trim() || (window as AMapWindow).__TREK_AMAP_JS_KEY__ || '';
   if ((window as AMapWindow).AMap && (!loading || loading.key === key))
     return Promise.resolve((window as AMapWindow).AMap as AMapModule);
   if (loading?.key === key) return loading.promise;
   const promise = new Promise<AMapModule>((resolve, reject) => {
     const existing = document.querySelector('script[data-trek-amap]') as HTMLScriptElement | null;
     const script = existing ?? document.createElement('script');
+    (window as AMapWindow)._AMapSecurityConfig = {
+      serviceHost: `${window.location.origin}/_AMapService`,
+    };
     script.dataset.trekAmap = 'true';
     script.src = 'https://webapi.amap.com/maps?v=2.0&key=' + encodeURIComponent(key) + '&lang=zh_cn';
     script.async = true;

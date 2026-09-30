@@ -29,6 +29,7 @@ export const SENSITIVE_KEYS = new Set([
   'code',
   'smtp_pass',
   'secretaccesskey',
+  'imagebase64',
 ]);
 
 /**

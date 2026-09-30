@@ -3,7 +3,6 @@ import type { Collection } from '@trek/shared';
 import React from 'react';
 import type { Mock } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '../../../tests/helpers/render';
-import { tripsApi } from '../../api/client';
 import { useTranslation } from '../../i18n/TranslationContext';
 import { useCollectionStore } from '../../store/collectionStore';
 import ListEditorModal from './ListEditorModal';
@@ -77,24 +76,7 @@ describe('ListEditorModal', () => {
       vi.fn(() => 'blob:cover-preview'),
       vi.fn()
     );
-    vi.spyOn(tripsApi, 'searchCoverImages').mockResolvedValue({
-      photos: [
-        {
-          id: 'p1',
-          url: 'https://img/full1.jpg',
-          thumb: 'https://img/thumb1.jpg',
-          description: 'A street',
-          photographer: 'Rin',
-        },
-        {
-          id: 'p2',
-          url: 'https://img/full2.jpg',
-          thumb: 'https://img/thumb2.jpg',
-          description: null,
-          photographer: null,
-        },
-      ],
-    });
+
   });
 
   afterEach(() => {
@@ -273,55 +255,13 @@ describe('ListEditorModal', () => {
 
     fireEvent.change(fileInput, { target: { files: [] } });
     expect(screen.getByRole('button', { name: 'Add cover' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Unsplash/i })).not.toBeInTheDocument();
   });
 
-  it('FE-COMP-LISTEDITOR-016: the Unsplash search renders results and the picked photo becomes cover_image', async () => {
-    setup();
-    fireEvent.change(screen.getByPlaceholderText('e.g. Tokyo 2025'), { target: { value: 'Oslo' } });
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'fjord' } });
-    fireEvent.click(screen.getByRole('button', { name: /Search Unsplash/ }));
-
-    expect(await screen.findByRole('button', { name: 'Rin' })).toBeInTheDocument();
-    expect(tripsApi.searchCoverImages).toHaveBeenCalledWith('fjord');
-    // A photo without a photographer falls back to the generic label.
-    fireEvent.click(screen.getByRole('button', { name: 'Unsplash' }));
-    expect(document.querySelector('img[src="https://img/full2.jpg"]')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-    await waitFor(() => expect(actions.createCollection).toHaveBeenCalled());
-    expect(actions.createCollection.mock.calls[0][0].cover_image).toBe('https://img/full2.jpg');
-    expect(actions.uploadCover).not.toHaveBeenCalled();
-  });
-
-  it('FE-COMP-LISTEDITOR-017: an empty query falls back to the list name, Enter triggers the search', async () => {
-    setup();
-    const query = screen.getByPlaceholderText('Search destination photos');
-    fireEvent.change(screen.getByPlaceholderText('e.g. Tokyo 2025'), { target: { value: 'Bergen' } });
-    fireEvent.keyDown(query, { key: 'Enter' });
-    await waitFor(() => expect(tripsApi.searchCoverImages).toHaveBeenCalledWith('Bergen'));
-  });
-
-  it('FE-COMP-LISTEDITOR-018: with neither a query nor a name the search button stays disabled', () => {
-    setup();
-    expect(screen.getByRole('button', { name: /Search Unsplash/ })).toBeDisabled();
-  });
-
-  it('FE-COMP-LISTEDITOR-019: a failing cover search clears the result grid', async () => {
-    vi.mocked(tripsApi.searchCoverImages).mockRejectedValueOnce(new Error('offline'));
-    setup();
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'fjord' } });
-    fireEvent.click(screen.getByRole('button', { name: /Search Unsplash/ }));
-    await waitFor(() => expect(tripsApi.searchCoverImages).toHaveBeenCalled());
-    expect(screen.queryByRole('button', { name: 'Rin' })).not.toBeInTheDocument();
-  });
-
-  it('FE-COMP-LISTEDITOR-020: an uploaded file wins over a previously picked Unsplash photo', async () => {
+  it('FE-COMP-LISTEDITOR-020: an uploaded file is saved without a remote cover URL', async () => {
     const file = new File(['x'], 'cover.png', { type: 'image/png' });
     const { container } = setup();
     fireEvent.change(screen.getByPlaceholderText('e.g. Tokyo 2025'), { target: { value: 'Oslo' } });
-    fireEvent.change(screen.getByPlaceholderText('Search destination photos'), { target: { value: 'fjord' } });
-    fireEvent.click(screen.getByRole('button', { name: /Search Unsplash/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Rin' }));
 
     const fileInput = container.ownerDocument.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, { target: { files: [file] } });

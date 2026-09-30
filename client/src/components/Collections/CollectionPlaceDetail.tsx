@@ -163,6 +163,7 @@ export default function CollectionPlaceDetail({
     const photoId =
       place.google_place_id ||
       place.osm_id ||
+      (place.amap_id ? `amap:${place.amap_id}` : null) ||
       (place.lat != null && place.lng != null ? `${place.lat},${place.lng}` : null);
     if (!photoId) return;
     let cancelled = false;

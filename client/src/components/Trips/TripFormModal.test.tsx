@@ -340,50 +340,6 @@ describe('TripFormModal', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('FE-COMP-TRIPFORM-031: selects an Unsplash cover and saves it after trip creation', async () => {
-    const user = userEvent.setup();
-    const onSave = vi.fn().mockResolvedValue({ trip: buildTrip({ id: 99 }) });
-    let updateBody: unknown;
-    server.use(
-      http.get('/api/trips/cover-images/search', () =>
-        HttpResponse.json({
-          photos: [
-            {
-              id: 'unsplash-1',
-              url: 'https://images.example.com/regular.jpg',
-              thumb: 'https://images.example.com/thumb.jpg',
-              description: 'Mountain lake',
-              photographer: 'Alice',
-              link: 'https://unsplash.com/photos/unsplash-1',
-            },
-          ],
-        })
-      ),
-      http.put('/api/trips/99', async ({ request }) => {
-        updateBody = await request.json();
-        return HttpResponse.json({
-          trip: buildTrip({ id: 99, cover_image: 'https://images.example.com/regular.jpg' }),
-        });
-      })
-    );
-
-    render(<TripFormModal {...defaultProps} trip={null} onSave={onSave} />);
-    await user.type(screen.getByPlaceholderText(/Summer in Japan/i), 'Alpine Trip');
-    await user.type(screen.getByPlaceholderText('Search destination photos'), 'alps');
-    await user.click(screen.getByRole('button', { name: /Search Unsplash/i }));
-    await user.click(await screen.findByRole('button', { name: /Use Unsplash photo by Alice/i }));
-
-    const submitBtn = screen
-      .getAllByText('Create New Trip')
-      .filter((el) => el.closest('button'))
-      .pop()!;
-    await user.click(submitBtn.closest('button')!);
-
-    await waitFor(() => {
-      expect(updateBody).toMatchObject({ cover_image: 'https://images.example.com/regular.jpg' });
-    });
-  });
-
   // The trip currency is the base every expense and settlement is netted against, and
   // until #1543 the only way to set it was the legacy Budget addon panel.
   it('FE-COMP-TRIPFORM-032: pre-fills the currency of the trip being edited', () => {
@@ -639,27 +595,6 @@ describe('TripFormModal', () => {
     expect(onCoverUpdate).not.toHaveBeenCalled();
   });
 
-  it('FE-COMP-TRIPFORM-047: a failing Unsplash cover save after create only warns', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/trips/cover-images/search', () =>
-        HttpResponse.json({
-          photos: [{ id: 'p1', url: 'https://img/regular.jpg', thumb: 'https://img/t.jpg', photographer: 'Alice' }],
-        })
-      ),
-      http.put('/api/trips/99', () => HttpResponse.json({}, { status: 500 }))
-    );
-    const onSave = vi.fn().mockResolvedValue({ trip: buildTrip({ id: 99 }) });
-    render(<TripFormModal {...defaultProps} trip={null} onSave={onSave} />);
-
-    await user.type(screen.getByPlaceholderText(/Summer in Japan/i), 'Alpine Trip');
-    await user.click(screen.getByRole('button', { name: /Search Unsplash/i }));
-    await user.click(await screen.findByRole('button', { name: /Use Unsplash photo by Alice/i }));
-    await submitNewTrip(user);
-
-    await waitFor(() => expect(addToast).toHaveBeenCalledWith('Failed to save cover image', 'error', undefined));
-  });
-
   // ── Cover upload on an existing trip ──────────────────────────────────────
 
   it('FE-COMP-TRIPFORM-048: picking a file on an existing trip uploads it immediately', async () => {
@@ -713,119 +648,10 @@ describe('TripFormModal', () => {
 
     const clickSpy = vi.spyOn(fileInput(), 'click').mockImplementation(() => {});
     await user.click(screen.getByRole('button', { name: /Change/i }));
+    expect(screen.queryByRole('button', { name: /Unsplash/i })).not.toBeInTheDocument();
 
     expect(clickSpy).toHaveBeenCalled();
     expect(document.querySelector('img[src="/uploads/covers/a.jpg"]')).toBeInTheDocument();
-  });
-
-  // ── Unsplash search ───────────────────────────────────────────────────────
-
-  it('FE-COMP-TRIPFORM-052: pressing Enter without a query or title asks for a search term', async () => {
-    render(<TripFormModal {...defaultProps} trip={null} />);
-    const search = screen.getByPlaceholderText('Search destination photos');
-
-    fireEvent.keyDown(search, { key: 'a' });
-    expect(screen.queryByText('Enter a search term')).not.toBeInTheDocument();
-
-    fireEvent.keyDown(search, { key: 'Enter' });
-    await screen.findByText('Enter a search term');
-  });
-
-  it('FE-COMP-TRIPFORM-053: a search without results reports it', async () => {
-    const user = userEvent.setup();
-    server.use(http.get('/api/trips/cover-images/search', () => HttpResponse.json({})));
-    render(<TripFormModal {...defaultProps} trip={null} />);
-
-    await user.type(screen.getByPlaceholderText('Search destination photos'), 'nowhere');
-    await user.click(screen.getByRole('button', { name: /Search Unsplash/i }));
-
-    expect(await screen.findByText('No images found')).toBeInTheDocument();
-  });
-
-  it('FE-COMP-TRIPFORM-054: a failing search shows the server error', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/trips/cover-images/search', () =>
-        HttpResponse.json({ error: 'Unsplash key missing' }, { status: 500 })
-      )
-    );
-    render(<TripFormModal {...defaultProps} trip={null} />);
-
-    await user.type(screen.getByPlaceholderText('Search destination photos'), 'alps');
-    await user.click(screen.getByRole('button', { name: /Search Unsplash/i }));
-
-    expect(await screen.findByText('Unsplash key missing')).toBeInTheDocument();
-  });
-
-  it('FE-COMP-TRIPFORM-055: a photo without a photographer falls back in the label and drops the credit', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/trips/cover-images/search', () =>
-        HttpResponse.json({
-          photos: [{ id: 'p1', url: '', thumb: 'https://img/t.jpg', description: null, photographer: null }],
-        })
-      )
-    );
-    render(<TripFormModal {...defaultProps} trip={null} />);
-
-    await user.type(screen.getByPlaceholderText(/Summer in Japan/i), 'Alps');
-    await user.click(screen.getByRole('button', { name: /Search Unsplash/i }));
-
-    const photoBtn = await screen.findByRole('button', { name: 'Use Unsplash photo by Unsplash' });
-    expect(photoBtn.querySelector('img')).toHaveAttribute('alt', '');
-    expect(photoBtn.querySelector('span')).toBeNull();
-
-    // An empty url is not selectable — nothing is staged.
-    await user.click(photoBtn);
-    expect(document.querySelector('img[src="https://img/t.jpg"]')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Change/i })).not.toBeInTheDocument();
-  });
-
-  it('FE-COMP-TRIPFORM-056: picking an Unsplash photo while editing saves it right away', async () => {
-    const user = userEvent.setup();
-    const onCoverUpdate = vi.fn();
-    let putBody: Record<string, unknown> | null = null;
-    server.use(
-      http.get('/api/trips/cover-images/search', () =>
-        HttpResponse.json({
-          photos: [{ id: 'p1', url: 'https://img/regular.jpg', thumb: 'https://img/t.jpg', photographer: 'Bob' }],
-        })
-      ),
-      http.put('/api/trips/1', async ({ request }) => {
-        putBody = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json({ trip: buildTrip({ id: 1 }) });
-      })
-    );
-    render(
-      <TripFormModal {...defaultProps} trip={buildTrip({ id: 1, title: 'Edit Me' })} onCoverUpdate={onCoverUpdate} />
-    );
-
-    await user.type(screen.getByPlaceholderText('Search destination photos'), 'alps');
-    await user.click(screen.getByRole('button', { name: /Search Unsplash/i }));
-    await user.click(await screen.findByRole('button', { name: /Use Unsplash photo by Bob/i }));
-
-    await waitFor(() => expect(putBody).toMatchObject({ cover_image: 'https://img/regular.jpg' }));
-    expect(onCoverUpdate).toHaveBeenCalledWith(1, 'https://img/regular.jpg');
-    expect(addToast).toHaveBeenCalledWith('Cover image saved', 'success', undefined);
-  });
-
-  it('FE-COMP-TRIPFORM-057: a failing Unsplash save while editing shows the server error', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/trips/cover-images/search', () =>
-        HttpResponse.json({
-          photos: [{ id: 'p1', url: 'https://img/regular.jpg', thumb: 'https://img/t.jpg', photographer: 'Bob' }],
-        })
-      ),
-      http.put('/api/trips/1', () => HttpResponse.json({ error: 'Cover rejected' }, { status: 500 }))
-    );
-    render(<TripFormModal {...defaultProps} trip={buildTrip({ id: 1, title: 'Edit Me' })} />);
-
-    await user.type(screen.getByPlaceholderText('Search destination photos'), 'alps');
-    await user.click(screen.getByRole('button', { name: /Search Unsplash/i }));
-    await user.click(await screen.findByRole('button', { name: /Use Unsplash photo by Bob/i }));
-
-    await waitFor(() => expect(addToast).toHaveBeenCalledWith('Cover rejected', 'error', undefined));
   });
 
   // ── Removing a cover ──────────────────────────────────────────────────────
@@ -1218,65 +1044,6 @@ describe('TripFormModal', () => {
     await screen.findByText(/Uploading/);
     await waitFor(() => expect(screen.getByRole('button', { name: /Change/i })).toBeInTheDocument());
     expect(document.querySelector('img[src="/uploads/covers/late.jpg"]')).toBeInTheDocument();
-  });
-
-  // A slow first search must never overwrite the results of a newer one (#1277).
-  it('FE-COMP-TRIPFORM-081: a stale successful search response is discarded', async () => {
-    let staleResolved = false;
-    server.use(
-      http.get('/api/trips/cover-images/search', async ({ request }) => {
-        const query = new URL(request.url).searchParams.get('query');
-        if (query === 'slow') {
-          await delay(60);
-          staleResolved = true;
-          return HttpResponse.json({
-            photos: [{ id: 's', url: 'https://img/s.jpg', thumb: 'https://img/st.jpg', photographer: 'Stale' }],
-          });
-        }
-        return HttpResponse.json({
-          photos: [{ id: 'f', url: 'https://img/f.jpg', thumb: 'https://img/ft.jpg', photographer: 'Fresh' }],
-        });
-      })
-    );
-    render(<TripFormModal {...defaultProps} trip={null} />);
-    const search = screen.getByPlaceholderText('Search destination photos');
-
-    fireEvent.change(search, { target: { value: 'slow' } });
-    fireEvent.keyDown(search, { key: 'Enter' });
-    fireEvent.change(search, { target: { value: 'fast' } });
-    fireEvent.keyDown(search, { key: 'Enter' });
-
-    await screen.findByRole('button', { name: /Use Unsplash photo by Fresh/i });
-    await waitFor(() => expect(staleResolved).toBe(true));
-    expect(screen.queryByRole('button', { name: /Use Unsplash photo by Stale/i })).not.toBeInTheDocument();
-  });
-
-  it('FE-COMP-TRIPFORM-082: a stale failing search does not clobber fresh results', async () => {
-    let staleResolved = false;
-    server.use(
-      http.get('/api/trips/cover-images/search', async ({ request }) => {
-        const query = new URL(request.url).searchParams.get('query');
-        if (query === 'slow') {
-          await delay(60);
-          staleResolved = true;
-          return HttpResponse.json({ error: 'Stale failure' }, { status: 500 });
-        }
-        return HttpResponse.json({
-          photos: [{ id: 'f', url: 'https://img/f.jpg', thumb: 'https://img/ft.jpg', photographer: 'Fresh' }],
-        });
-      })
-    );
-    render(<TripFormModal {...defaultProps} trip={null} />);
-    const search = screen.getByPlaceholderText('Search destination photos');
-
-    fireEvent.change(search, { target: { value: 'slow' } });
-    fireEvent.keyDown(search, { key: 'Enter' });
-    fireEvent.change(search, { target: { value: 'fast' } });
-    fireEvent.keyDown(search, { key: 'Enter' });
-
-    await screen.findByRole('button', { name: /Use Unsplash photo by Fresh/i });
-    await waitFor(() => expect(staleResolved).toBe(true));
-    expect(screen.queryByText('Stale failure')).not.toBeInTheDocument();
   });
 
   it('FE-COMP-TRIPFORM-083: a closed modal fetches nothing until it is opened', async () => {

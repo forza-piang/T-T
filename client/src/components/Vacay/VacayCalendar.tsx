@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useVacayStore } from '../../store/vacayStore';
 import type { VacayEntry } from '../../types';
 import { inGridWindow, windowMonths } from '../../vacay/yearWindow';
-import { isWeekend } from './holidays';
+import { isWeekend, calendarDayStatus } from './holidays';
 import VacayMonthCard from './VacayMonthCard';
 
 type VacayMode = 'vacation' | 'company';
@@ -122,7 +122,8 @@ export default function VacayCalendar() {
         await toggleCompanyHoliday(dateStr);
         return;
       }
-      if (blockWeekends && isWeekend(dateStr, weekendDays)) {
+      const status = calendarDayStatus(holidays, dateStr);
+      if (status.isHoliday || (blockWeekends && isWeekend(dateStr, weekendDays) && !status.isWorkday)) {
         // A day already logged when the weekend config changed under it (#1897) keeps
         // counting against the entitlement, so clearing it stays possible — with the
         // entry's own fraction/kind, since the server only allows the delete on a
@@ -149,6 +150,7 @@ export default function VacayCalendar() {
       companyHolidaySet,
       blockWeekends,
       weekendDays,
+      holidays,
       companyHolidaysEnabled,
       selectedUserId,
       currentUserId,

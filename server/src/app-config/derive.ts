@@ -141,6 +141,8 @@ export function deriveMaps(raw: RawEnv) {
     cartoKey: raw.CARTO_API_KEY || undefined,
     /** Public browser key for the restricted AMap JS SDK; never use a Web-Service secret here. */
     amapJsKey: raw.AMAP_JS_API_KEY || undefined,
+    /** Server-only JS SDK signing secret; never serialize into user settings. */
+    amapSecurityCode: raw.AMAP_SECURITY_JS_CODE || undefined,
   };
 }
 
@@ -245,6 +247,7 @@ export function deriveWebauthn(raw: RawEnv) {
 
 export function deriveIntegrations(raw: RawEnv) {
   return {
+    minimaxReceiptApiKey: raw.MINIMAX_RECEIPT_API_KEY?.trim(),
     unsplashAccessKey: raw.UNSPLASH_ACCESS_KEY?.trim(),
     transitApiBase: stripTrailingSlashes(raw.TRANSIT_API_URL || 'https://api.transitous.org'),
     overpassUrl: raw.OVERPASS_URL,

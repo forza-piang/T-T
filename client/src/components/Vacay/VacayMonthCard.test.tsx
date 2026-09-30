@@ -277,3 +277,13 @@ describe('VacayMonthCard', () => {
     expect(quadrants).toHaveLength(4);
   });
 });
+
+
+it('shows a China make-up workday as an active day with a work badge', () => {
+  render(<VacayMonthCard {...baseProps} year={2026} month={9} holidays={{
+    '2026-10-10': { name: '调休补班', localName: '调休补班', label: null, color: '#fecaca', isWorkday: true }
+  }} />);
+  const cell = screen.getByTitle('调休补班');
+  expect(cell).toHaveStyle({ cursor: 'pointer', background: 'transparent' });
+  expect(cell).toHaveTextContent('班');
+});

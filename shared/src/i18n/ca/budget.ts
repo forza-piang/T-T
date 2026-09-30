@@ -1,6 +1,7 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "Envia aquesta captura a MiniMax i consumeix la quota del pla. Revisa el resultat abans de desar. PNG/JPEG, fins a 12 MB.",
   'budget.title': 'Pressupost',
   'budget.exportCsv': 'Exporta CSV',
   'budget.emptyTitle': "Encara no s'ha creat cap pressupost",
@@ -37,6 +38,10 @@ const budget: TranslationStrings = {
     "Fes clic a l'avatar d'un membre en una partida del pressupost per marcar-lo en verd — això significa que ha pagat. La liquidació mostra qui deu quant a qui.",
   'budget.netBalances': 'Saldos nets',
   'budget.categoriesLabel': 'categories',
+  "costs.scanReceipt": "Llegeix una captura del pagament",
+  "costs.scanReceiptHint": "Reconeixement local. Revisa els camps abans d’aplicar-los i desar. PNG/JPEG, fins a 12 MB.",
+  "costs.scanReceiptFailed": "No s’ha reconegut el pagament. Prova una imatge més nítida o introdueix les dades.",
+  "costs.scanReceiptApply": "Aplica els camps reconeguts",
   'costs.you': 'Tu',
   'costs.youShort': 'T',
   'costs.youLower': 'tu',

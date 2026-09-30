@@ -423,3 +423,15 @@ describe('vacayStore year selection', () => {
     expect(useVacayStore.getState().selectedYear).toBe(current);
   });
 });
+
+
+it('preserves make-up workday metadata from the China calendar response', async () => {
+  useVacayStore.setState({ selectedYear: 2026, plan: buildPlan({ holiday_calendars: [
+    { id: 1, plan_id: 1, region: 'CN', type: 'public_holiday', label: null, color: '#fecaca', sort_order: 0 }
+  ] }) });
+  server.use(http.get('/api/addons/vacay/holidays/2026/CN', () => HttpResponse.json([
+    { date: '2026-10-10', localName: '调休补班', name: '调休补班', global: true, counties: null, isWorkday: true }
+  ])));
+  await useVacayStore.getState().loadHolidays(2026);
+  expect(markersOn('2026-10-10')[0]?.isWorkday).toBe(true);
+});

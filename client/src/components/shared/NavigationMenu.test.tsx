@@ -7,7 +7,7 @@ import { NavigationMenu } from './NavigationMenu';
 
 const TARGETS: NavigationTarget[] = [
   { id: 'google', label: 'Google Maps', url: 'https://maps.example/g' },
-  { id: 'waze', label: 'Waze', url: 'https://waze.example/w' },
+  { id: 'amap', label: 'AMap', url: 'https://amap.example/a' },
 ];
 
 /** A trigger at a chosen viewport position, so the flip can be provoked. */
@@ -55,7 +55,7 @@ describe('NavigationMenu', () => {
   it('FE-COMP-NAVMENU-001: lists one entry per target', () => {
     render(<NavigationMenu targets={TARGETS} anchor={anchorAt(100)} onClose={vi.fn()} />);
     expect(screen.getByRole('menuitem', { name: 'Google Maps' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Waze' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'AMap' })).toBeInTheDocument();
   });
 
   it('FE-COMP-NAVMENU-002: opening a target closes the menu', () => {
@@ -63,9 +63,9 @@ describe('NavigationMenu', () => {
     const onClose = vi.fn();
     render(<NavigationMenu targets={TARGETS} anchor={anchorAt(100)} onClose={onClose} />);
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Waze' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'AMap' }));
 
-    expect(open).toHaveBeenCalledWith('https://waze.example/w', '_blank', 'noopener,noreferrer');
+    expect(open).toHaveBeenCalledWith('https://amap.example/a', '_blank', 'noopener,noreferrer');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

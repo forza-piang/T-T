@@ -780,15 +780,14 @@ describe('PlaceInspector', () => {
   it('FE-PLANNER-INSPECTOR-043: the navigation button offers every app the place can be opened in', async () => {
     const user = userEvent.setup();
     render(<PlaceInspector {...defaultProps} />);
-    // A place with coordinates reaches Google Maps and Waze (Apple Maps only on
-    // Apple platforms), so the button collects them behind one entry.
+    // The common navigation menu contains only the three retained providers.
     const navBtn = screen.getAllByRole('button').find((btn) => btn.textContent?.includes('Navigation'))!;
     expect(navBtn).toBeTruthy();
 
     await user.click(navBtn);
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByRole('menuitem', { name: 'Google Maps' })).toBeInTheDocument();
-    expect(within(menu).getByRole('menuitem', { name: 'Waze' })).toBeInTheDocument();
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['AMap', 'Apple Maps', 'Google Maps']);
   });
 
   it('FE-PLANNER-INSPECTOR-043b: Google Maps action uses google_ftid over coordinates', async () => {
@@ -1101,16 +1100,16 @@ describe('PlaceInspector', () => {
 
   // ── Footer actions ───────────────────────────────────────────────────────────
 
-  it('FE-PLANNER-INSPECTOR-069: OpenStreetMap sits in the navigation menu, the website keeps its own button', async () => {
+  it('FE-PLANNER-INSPECTOR-069: AMap sits in the navigation menu, the website keeps its own button', async () => {
     const user = userEvent.setup();
     const open = vi.fn();
     vi.stubGlobal('open', open);
     const p = buildPlace({ id: 705, name: 'Linked Place', osm_id: 'node/12345', website: 'https://example.org' });
     render(<PlaceInspector {...defaultProps} place={p} />);
 
-    // OSM moved in with the other map apps rather than standing beside them.
+    // Navigation and the place website remain separate actions.
     await user.click(screen.getAllByRole('button').find((b) => b.textContent?.includes('Navigation'))!);
-    await user.click(await screen.findByRole('menuitem', { name: 'OpenStreetMap' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'AMap' }));
 
     fireEvent.click(screen.getByText('Open Website').closest('button')!);
     expect(open).toHaveBeenCalledTimes(2);

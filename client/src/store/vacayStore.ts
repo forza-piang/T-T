@@ -51,6 +51,7 @@ interface VacayStatsResponse {
 }
 
 interface VacayHolidayRaw {
+  isWorkday?: boolean
   date: string
   name: string
   localName: string
@@ -435,7 +436,7 @@ export const useVacayStore = create<VacayState>((set, get) => ({
             data.forEach((h: VacayHolidayRaw) => {
               if (!inGridWindow(h.date, y, settings)) return
               if (h.global || !h.counties || (subdivision && h.counties.includes(subdivision))) {
-                pushHolidayMarker(map, h.date, { name: h.name, localName: h.localName, color: cal.color, label: cal.label, type: 'public_holiday' })
+                pushHolidayMarker(map, h.date, { name: h.name, localName: h.localName, color: cal.color, label: cal.label, type: 'public_holiday', isWorkday: h.isWorkday })
               }
             })
           }

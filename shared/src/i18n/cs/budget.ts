@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "Odešle tento snímek do MiniMax a čerpá limit vašeho tarifu. Před uložením zkontrolujte výsledek. PNG/JPEG, nejvýše 12 MB.",
+  "costs.scanReceipt": "Přečíst snímek platby",
+  "costs.scanReceiptHint": "Pouze místní rozpoznávání. Před použitím a uložením zkontrolujte údaje. PNG/JPEG, do 12 MB.",
+  "costs.scanReceiptFailed": "Platba nebyla rozpoznána. Použijte ostřejší snímek nebo zadejte údaje ručně.",
+  "costs.scanReceiptApply": "Použít rozpoznané údaje",
   'costs.confirm.deleteTitle': 'Smazat výdaj?',
   'costs.confirm.deleteBody': '„{name}“ bude trvale smazáno.',
   'budget.title': 'Rozpočet',

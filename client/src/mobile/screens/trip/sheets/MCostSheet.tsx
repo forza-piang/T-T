@@ -1,3 +1,4 @@
+import ReceiptScanner from '../../../../components/Budget/ReceiptScanner';
 import { Check, ChevronDown, Plus, Trash2, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SPLIT_COLORS, SYMBOLS, currenciesWith } from '../../../../components/Budget/BudgetPanel.constants';
@@ -407,6 +408,13 @@ export default function MCostSheet({ tripId, base, people, me, editing, prefill,
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-[6px] pt-[2px]">
+          {!editing && splitMode === 'equally' && <ReceiptScanner tripId={tripId} onApply={result => {
+            if (result.name) setName(result.name);
+            if (result.amount) setTotal(result.amount);
+            if (result.currency) setCurrency(result.currency);
+            if (result.date) setDay(result.date);
+            if (result.category) setCat(result.category);
+          }} />}
         {/* NAME */}
         <Eyebrow className="mb-[5px] mt-2 uppercase">{t('costs.whatFor')} *</Eyebrow>
         <input

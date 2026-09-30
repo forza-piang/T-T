@@ -1,6 +1,11 @@
 import type { TranslationStrings } from '../types';
 
 const budget: TranslationStrings = {
+  "costs.scanReceiptCloudHint": "Bu ekran görüntüsünü MiniMax’e gönderir ve plan kotanızı kullanır. Kaydetmeden önce sonucu kontrol edin. PNG/JPEG, en fazla 12 MB.",
+  "costs.scanReceipt": "Ödeme görüntüsünü oku",
+  "costs.scanReceiptHint": "Yalnızca yerel tanıma. Uygulamadan ve kaydetmeden önce alanları kontrol edin. PNG/JPEG, en fazla 12 MB.",
+  "costs.scanReceiptFailed": "Ödeme tanınamadı. Daha net bir görüntü deneyin veya elle girin.",
+  "costs.scanReceiptApply": "Tanınan alanları uygula",
   'costs.confirm.deleteTitle': 'Gider silinsin mi?',
   'costs.confirm.deleteBody': '"{name}" kalıcı olarak silinecek.',
   'budget.title': 'Bütçe',

@@ -934,6 +934,18 @@ describe('useTripPlanner — connection visibility', () => {
 });
 
 describe('useTripPlanner — selection handlers', () => {
+  it('repeats explicit map focus without clearing the selected place', async () => {
+    seedTrip({places:[buildPlace({id:1,lat:19.9,lng:109.6})]});
+    const {result}=await renderPlanner();
+    const initial=result.current.focusPlaceKey;
+    act(()=>result.current.handlePlaceFocus(1));
+    expect(result.current.selectedPlaceId).toBe(1);
+    expect(result.current.focusPlaceKey).toBe(initial+1);
+    act(()=>result.current.handlePlaceFocus(1));
+    expect(result.current.selectedPlaceId).toBe(1);
+    expect(result.current.focusPlaceKey).toBe(initial+2);
+  });
+
   it('FE-TP-HOOK-038: clicking a planned stop selects its assignment and reopens both panels', async () => {
     const place = buildPlace({ id: 1, lat: 1, lng: 2 });
     seedTrip({ places: [place] });

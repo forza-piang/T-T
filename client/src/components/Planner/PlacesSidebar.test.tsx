@@ -745,3 +745,21 @@ describe('picking a place up with a finger (#1616)', () => {
     }
   });
 });
+
+it('double-click focuses a place without running the ordinary toggle twice', async () => {
+ const onPlaceClick=vi.fn(), onPlaceFocus=vi.fn();
+ render(<PlacesSidebar {...defaultProps} places={[buildPlace({id:91,name:'临高县'})]} onPlaceClick={onPlaceClick} onPlaceFocus={onPlaceFocus} />);
+ const row=screen.getByRole('option');
+ await userEvent.dblClick(row);
+ expect(onPlaceClick).toHaveBeenCalledExactlyOnceWith(91);
+ expect(onPlaceFocus).toHaveBeenCalledExactlyOnceWith(91);
+ await userEvent.dblClick(row);
+ expect(onPlaceFocus).toHaveBeenCalledTimes(2);
+});
+it('double-clicking the assign button does not focus the map', async () => {
+ const onPlaceFocus=vi.fn();
+ render(<PlacesSidebar {...defaultProps} selectedDayId={1} places={[buildPlace({id:91})]} onPlaceFocus={onPlaceFocus} />);
+ const button=screen.getByRole('option').querySelector('button')!;
+ await userEvent.dblClick(button);
+ expect(onPlaceFocus).not.toHaveBeenCalled();
+});

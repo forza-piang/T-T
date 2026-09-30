@@ -270,22 +270,25 @@ function ViewportController({
 interface SelectionControllerProps {
   places: Place[];
   selectedPlaceId: number | null;
+  focusPlaceKey?: number;
   dayPlaces: Place[];
   paddingOpts: L.FitBoundsOptions;
 }
 
-function SelectionController({ places, selectedPlaceId, dayPlaces, paddingOpts }: SelectionControllerProps) {
+function SelectionController({ places, selectedPlaceId, dayPlaces, paddingOpts, focusPlaceKey = 0 }: SelectionControllerProps) {
   const map = useMap();
   const prev = useRef(null);
+  const previousFocus = useRef(focusPlaceKey);
 
   useEffect(() => {
-    if (selectedPlaceId && selectedPlaceId !== prev.current) {
+    if (selectedPlaceId && (selectedPlaceId !== prev.current || previousFocus.current !== focusPlaceKey)) {
       // Pan to the selected place without changing zoom. Offset the centre by the
       // side-panel + bottom-inspector padding so the pin lands in the middle of the
       // *visible* map area rather than the geometric centre (where the bottom panel
       // would cover it). Reuses the same paddingOpts the fit-bounds path uses.
       const selected = places.find((p) => p.id === selectedPlaceId);
       if (selected?.lat != null && selected?.lng != null) {
+        if (previousFocus.current !== focusPlaceKey) map.setZoom(Math.max(map.getZoom(), 14));
         const latlng: [number, number] = [selected.lat, selected.lng];
         const tl = paddingOpts.paddingTopLeft as [number, number] | undefined;
         const br = paddingOpts.paddingBottomRight as [number, number] | undefined;
@@ -298,7 +301,8 @@ function SelectionController({ places, selectedPlaceId, dayPlaces, paddingOpts }
       }
     }
     prev.current = selectedPlaceId;
-  }, [selectedPlaceId, places, map]);
+    previousFocus.current = focusPlaceKey;
+  }, [selectedPlaceId, focusPlaceKey, places, map]);
 
   return null;
 }
@@ -603,6 +607,7 @@ export const MapView = memo(function MapView({
   // the shape a caller without one gets.
   tileUrl = OFM_POSITRON,
   fitKey = 0,
+  focusPlaceKey = 0,
   dayOrderMap = {},
   leftWidth = 0,
   rightWidth = 0,
@@ -1042,6 +1047,7 @@ export const MapView = memo(function MapView({
           <SelectionController
             places={places}
             selectedPlaceId={selectedPlaceId}
+            focusPlaceKey={focusPlaceKey}
             dayPlaces={dayPlaces}
             paddingOpts={paddingOpts}
           />

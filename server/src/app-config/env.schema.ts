@@ -105,6 +105,7 @@ export const envSchema = z.object({
   MCP_RATE_LIMIT: positiveNumber,
 
   // Integrations
+  MINIMAX_RECEIPT_API_KEY: anyString,
   UNSPLASH_ACCESS_KEY: anyString,
   TRANSIT_API_URL: url,
   // OVERPASS_URL accepts a comma-separated endpoint list and silently drops
@@ -144,6 +145,7 @@ export const envSchema = z.object({
   PLACES_API_BASE: url,
   PLACES_API_KEY: anyString,
   AMAP_JS_API_KEY: anyString,
+  AMAP_SECURITY_JS_CODE: anyString,
   MAPBOX_ACCESS_TOKEN: anyString,
   CARTO_API_KEY: anyString,
   DEMO_MODE: boolStr,

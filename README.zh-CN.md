@@ -15,6 +15,8 @@
 
 # TT Travel Planner
 
+> **国内适配分支 / China adaptation:** 本分支基于上游 v0.8.1，包含高德、节假日和付款截图识别等定制功能。请先阅读 [国内适配部署与更新说明](README-CN-ADAPTATION.md)。以下为保留的上游介绍。
+
 一个支持自托管、实时协作、交互式地图和 AI 功能的旅行规划平台。你可以按天规划行程、管理费用和预订、记录旅行日志，并通过 Atlas 探索和记录去过的地方。
 
 [![License](https://img.shields.io/badge/license-AGPL_v3-6B7280?style=flat-square)](LICENSE)
